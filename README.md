@@ -65,7 +65,7 @@ A browser is on screen, and that same browser asked for a ruled name in the last
 
 ### Who stays outside the shield
 
-The app itself (it is the way out to the real DNS), banks (Nubank, Inter, Itaú, Banco do Brasil, Bradesco, Santander, Caixa, Mercado Pago, PicPay) and [Nightmare Alarm](https://github.com/luiz-nast/nightmare-alarm). Nothing from them passes through the tunnel.
+The app itself (it is the way out to the real DNS), banks (Nubank, Inter, Itaú, Banco do Brasil, Bradesco, Santander, Caixa, Mercado Pago, PicPay) and [Tourbillon Alarm](https://github.com/luiz-nast/tourbillon-alarm). Nothing from them passes through the tunnel.
 
 ## Install
 
@@ -95,7 +95,7 @@ It comes back by itself after a reboot or an update.
 
 ## Why not an accessibility service?
 
-Most app blockers watch the screen through an accessibility service and press Home on the blocked app. On Android 13+, an app that is not from the Play Store and has an accessibility service on is exactly what the "app access risk" check of banking apps flags, because that is how remote-control scams work: Nubank refuses to open while one is on. The same owner hit that with Nightmare Alarm in October 2026. So Maverick Truck uses only:
+Most app blockers watch the screen through an accessibility service and press Home on the blocked app. On Android 13+, an app that is not from the Play Store and has an accessibility service on is exactly what the "app access risk" check of banking apps flags, because that is how remote-control scams work: Nubank refuses to open while one is on. The same owner hit that with Tourbillon Alarm in October 2026. So Maverick Truck uses only:
 
 | Need | What it uses | Not this |
 |---|---|---|

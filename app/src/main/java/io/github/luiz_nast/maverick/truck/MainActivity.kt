@@ -195,7 +195,7 @@ private fun Tela(onLigar: () -> Unit, onDesligar: () -> Unit, onNotificacoes: ()
         for (p in permissoes) LinhaDePermissao(p)
         Spacer(Modifier.height(24.dp))
         Text(
-            "Counts only while the app (or the site, in a browser) is on screen. Banks and Nightmare Alarm stay outside " +
+            "Counts only while the app (or the site, in a browser) is on screen. Banks and Tourbillon Alarm stay outside " +
                 "the shield. Sibling of Maverick, for the Linux desktop.",
             color = Apagado, fontSize = 13.sp,
         )
