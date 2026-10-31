@@ -1,39 +1,87 @@
 // A tela que aparece por cima do app bloqueado (Instagram ou YouTube) quando ele está na frente, pra tirar a pessoa de
-// lá de verdade — não só cortar a internet por baixo. É o que o Maverick do computador faz (a "Cover"). Usa a permissão
+// lá de verdade, não só cortar a internet por baixo. É o que o Maverick do computador faz (a "Cover"). Usa a permissão
 // "Aparecer sobre outros apps" (SYSTEM_ALERT_WINDOW), que é diferente de acessibilidade: o Nubank não implica com ela.
 //
+// No fundo, um carrossel de carros muito luxuosos (CARROS, fotos do Wikimedia Commons com licença livre, cada uma com o
+// carro, o autor e a licença embaixo); por cima, o aviso e o botão que leva pra tela inicial. Quando ela aparece, a voz
+// do celular lê o discurso (DISCURSO) a pelo menos 40% do volume de mídia, e o app de trás para o som enquanto isso (o
+// foco de áudio). O volume de antes volta quando o discurso acaba ou a tela some (o dono, 10-31).
+//
 // Só aparece sobre o app do site bloqueado (o escudo só manda mostrar quando esse app está na frente); nunca sobre um
-// banco, o despertador ou qualquer outro. Tem um botão que leva pra tela inicial. Sem a permissão, não faz nada: o
-// escudo segue cortando a rede.
+// banco, o despertador ou qualquer outro. Sem a permissão, não faz nada.
 package io.github.luiz_nast.maverick.truck
 
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
+import android.graphics.PixelFormat
 import android.graphics.drawable.GradientDrawable
+import android.media.AudioAttributes
+import android.media.AudioFocusRequest
+import android.media.AudioManager
 import android.os.Build
+import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.provider.Settings
+import android.speech.tts.TextToSpeech
+import android.speech.tts.UtteranceProgressListener
+import android.util.Log
+import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
 import android.view.WindowManager
 import android.widget.Button
+import android.widget.FrameLayout
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 class Cobertura(private val ctx: Context) {
     private val janelas = ctx.getSystemService(WindowManager::class.java)
+    private val audio = ctx.getSystemService(AudioManager::class.java)
+    private val handler = Handler(Looper.getMainLooper())
     private var vista: View? = null
+    private var foto: ImageView? = null
+    private var legenda: TextView? = null
     private var titulo: TextView? = null
     private var linha: TextView? = null
     private var siteNaTela: Site? = null
+    private var indice = 0
+
+    private var voz: TextToSpeech? = null
+    private var vozPronta = false
+    private var falarQuandoPronta = false
+    private var volumeAntes: Int? = null // o volume de mídia de antes do discurso, pra devolver
+    private var volumeAlvo: Int? = null // o que o discurso pôs: se a pessoa mexeu depois, o dela fica
+    private var foco: AudioFocusRequest? = null
+
+    /** A próxima foto do carrossel, a cada [TROCA_MS], com um esmaecer rápido. */
+    private val trocar = object : Runnable {
+        override fun run() {
+            val f = foto ?: return
+            f.animate().alpha(0f).setDuration(FADE_MS).withEndAction {
+                indice = (indice + 1) % CARROS.size
+                mostrarFoto()
+                f.animate().alpha(1f).setDuration(FADE_MS).start()
+            }.start()
+            handler.postDelayed(this, TROCA_MS)
+        }
+    }
 
     /** Mostra (ou atualiza) a tela por cima pro [site] bloqueado até [ate] (epoch, ms). Sem a permissão, não faz nada. */
     fun mostrar(site: Site, ate: Long) {
         if (Build.VERSION.SDK_INT < 23 || !Settings.canDrawOverlays(ctx)) return
-        if (vista == null) criar()
+        if (vista == null) {
+            criar()
+            if (vista == null) return
+            handler.postDelayed(trocar, TROCA_MS)
+            discursar()
+        }
         if (site != siteNaTela) {
             siteNaTela = site
             titulo?.text = "${site.nome} is blocked"
@@ -42,48 +90,101 @@ class Cobertura(private val ctx: Context) {
         linha?.text = "Your ${LIVRE_MS / 60_000} minutes are up.\nFree again at $hora."
     }
 
-    /** Tira a tela, se estiver aparecendo. */
+    /** Tira a tela, se estiver aparecendo; o discurso para e o volume de antes volta. */
     fun esconder() {
         val v = vista ?: return
         vista = null
+        foto = null
+        legenda = null
         titulo = null
         linha = null
         siteNaTela = null
+        handler.removeCallbacks(trocar)
+        calar()
         runCatching { janelas.removeView(v) }
     }
 
+    /** O escudo acabou: a voz do celular é solta (sem ela, nada fica preso ao app). */
+    fun liberar() {
+        esconder()
+        voz?.shutdown()
+        voz = null
+        vozPronta = false
+    }
+
+    private fun mostrarFoto() {
+        val carro = CARROS[indice]
+        foto?.setImageResource(carro.desenho)
+        legenda?.text = carro.legenda
+    }
+
     private fun criar() {
-        val fundo = LinearLayout(ctx).apply {
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER
-            setBackgroundColor(Color.parseColor("#F20E0F12"))
-            setPadding(64, 64, 64, 64)
+        val raiz = FrameLayout(ctx).apply {
+            setBackgroundColor(Color.BLACK)
             isClickable = true // consome os toques: nada passa pro app atrás
         }
+        foto = ImageView(ctx).apply { scaleType = ImageView.ScaleType.FIT_CENTER } // o carro inteiro, não um pedaço ampliado
+        raiz.addView(foto, FrameLayout.LayoutParams(-1, -1))
+        // Escurece a foto, mais embaixo e no meio, pro texto ler bem por cima de qualquer carro
+        raiz.addView(
+            View(ctx).apply {
+                background = GradientDrawable(
+                    GradientDrawable.Orientation.TOP_BOTTOM,
+                    intArrayOf(Color.parseColor("#66000000"), Color.parseColor("#AA000000"), Color.parseColor("#DD000000")),
+                )
+            },
+            FrameLayout.LayoutParams(-1, -1),
+        )
         titulo = TextView(ctx).apply {
-            textSize = 30f
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 30f)
             setTextColor(Color.parseColor("#FFF2F2F3"))
             gravity = Gravity.CENTER
+            setShadowLayer(8f, 0f, 2f, Color.BLACK)
         }
         linha = TextView(ctx).apply {
-            textSize = 18f
-            setTextColor(Color.parseColor("#FF8A8F98"))
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 18f)
+            setTextColor(Color.parseColor("#FFE6E6E8"))
             gravity = Gravity.CENTER
-            setPadding(0, 32, 0, 64)
+            setPadding(0, dp(16), 0, dp(32))
+            setShadowLayer(8f, 0f, 2f, Color.BLACK)
         }
         val botao = Button(ctx).apply {
             text = "Leave"
             setTextColor(Color.parseColor("#FF0E0F12"))
             background = GradientDrawable().apply {
-                cornerRadius = 48f
+                cornerRadius = dp(24).toFloat()
                 setColor(Color.parseColor("#FFFF7A1A"))
             }
-            setPadding(96, 32, 96, 32)
+            setPadding(dp(48), dp(14), dp(48), dp(14))
             setOnClickListener { paraOInicio() }
         }
-        fundo.addView(titulo)
-        fundo.addView(linha)
-        fundo.addView(botao)
+        val meio = LinearLayout(ctx).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            setPadding(dp(32), dp(32), dp(32), dp(32))
+            addView(titulo)
+            addView(linha)
+            addView(botao)
+        }
+        raiz.addView(meio, FrameLayout.LayoutParams(-1, -1, Gravity.CENTER))
+        // O crédito da foto, embaixo: o carro, o autor e a licença (as licenças pedem a atribuição)
+        legenda = TextView(ctx).apply {
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
+            setTextColor(Color.parseColor("#B3FFFFFF"))
+            setPadding(dp(16), dp(8), dp(16), dp(24))
+        }
+        raiz.addView(legenda, FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM))
+        indice = (System.currentTimeMillis() / TROCA_MS % CARROS.size).toInt() // cada vez começa num carro
+        raiz.addView(
+            TextView(ctx).apply {
+                text = CREDITOS
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 9f)
+                setTextColor(Color.parseColor("#80FFFFFF"))
+                setPadding(dp(16), 0, dp(16), dp(8))
+            },
+            FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM),
+        )
+        mostrarFoto()
         val tipo = if (Build.VERSION.SDK_INT >= 26) {
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
         } else {
@@ -95,14 +196,104 @@ class Cobertura(private val ctx: Context) {
             tipo,
             // Não rouba o foco do teclado, mas recebe os toques (o fundo os consome); por cima das barras do sistema
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
-            android.graphics.PixelFormat.OPAQUE,
+            PixelFormat.OPAQUE,
         )
-        runCatching { janelas.addView(fundo, params) }.onSuccess { vista = fundo }
+        runCatching { janelas.addView(raiz, params) }
+            .onSuccess { vista = raiz }
+            .onFailure { Log.w(TAG, "Tela de bloqueio: o Android não deixou mostrar", it) }
     }
+
+    /** O discurso: a voz do celular, a pelo menos 40% do volume de mídia, com o som do app de trás pausado. */
+    private fun discursar() {
+        val v = voz
+        if (v == null) {
+            falarQuandoPronta = true
+            voz = TextToSpeech(ctx.applicationContext) { status ->
+                handler.post {
+                    vozPronta = status == TextToSpeech.SUCCESS
+                    val t = voz ?: return@post
+                    val idioma = if (vozPronta) t.setLanguage(Locale.US) else TextToSpeech.LANG_NOT_SUPPORTED
+                    if (idioma < TextToSpeech.LANG_AVAILABLE) {
+                        // Sem a voz em inglês (ou a voz não subiu): na próxima vez que a tela aparecer, tenta de novo
+                        Log.w(TAG, "Tela de bloqueio: sem voz em inglês no celular, sem discurso desta vez")
+                        t.shutdown()
+                        voz = null
+                        vozPronta = false
+                        falarQuandoPronta = false
+                        return@post
+                    }
+                    t.setAudioAttributes(atributos())
+                    t.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+                        override fun onStart(id: String?) {}
+                        override fun onDone(id: String?) { handler.post { devolverSom() } }
+                        @Deprecated("Deprecated in Java")
+                        override fun onError(id: String?) { handler.post { devolverSom() } }
+                    })
+                    if (falarQuandoPronta && vista != null) falar(t)
+                    falarQuandoPronta = false
+                }
+            }
+            return
+        }
+        if (vozPronta) falar(v) else falarQuandoPronta = true
+    }
+
+    private fun falar(t: TextToSpeech) {
+        // O app de trás (um vídeo do Instagram) pausa o som enquanto o discurso toca. Sem o foco (uma ligação em
+        // andamento, por exemplo), nada de discurso nem de volume mexido
+        val pedido = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT).setAudioAttributes(atributos()).build()
+        if (audio.requestAudioFocus(pedido) != AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
+            Log.i(TAG, "Tela de bloqueio: sem o foco de áudio (ligação?), sem discurso")
+            return
+        }
+        foco = pedido
+        val maximo = audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+        val atual = audio.getStreamVolume(AudioManager.STREAM_MUSIC)
+        val alvo = volumeDoDiscurso(atual, maximo)
+        if (alvo != atual) {
+            volumeAntes = atual
+            volumeAlvo = alvo
+            runCatching { audio.setStreamVolume(AudioManager.STREAM_MUSIC, alvo, 0) }
+        }
+        t.speak(DISCURSO, TextToSpeech.QUEUE_FLUSH, Bundle(), "discurso")
+    }
+
+    /** A voz para (a tela sumiu) e o som volta como estava. */
+    private fun calar() {
+        falarQuandoPronta = false
+        voz?.stop()
+        devolverSom()
+    }
+
+    /** Devolve o volume de antes do discurso e o foco de áudio pro app de trás. */
+    private fun devolverSom() {
+        val antes = volumeAntes
+        // Só se o volume ainda é o que o discurso pôs: se a pessoa mexeu (ou trocou pro fone), o dela fica
+        if (antes != null && audio.getStreamVolume(AudioManager.STREAM_MUSIC) == volumeAlvo) {
+            runCatching { audio.setStreamVolume(AudioManager.STREAM_MUSIC, antes, 0) }
+        }
+        volumeAntes = null
+        volumeAlvo = null
+        foco?.let { audio.abandonAudioFocusRequest(it) }
+        foco = null
+    }
+
+    private fun atributos(): AudioAttributes = AudioAttributes.Builder()
+        .setUsage(AudioAttributes.USAGE_MEDIA)
+        .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+        .build()
 
     /** Vai pra tela inicial (tira o app bloqueado da frente). A tela por cima some no próximo tique, porque o app saiu da frente. */
     private fun paraOInicio() {
         val inicio = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         runCatching { ctx.startActivity(inicio) }
+    }
+
+    private fun dp(v: Int): Int = (v * ctx.resources.displayMetrics.density).toInt()
+
+    private companion object {
+        /** De quanto em quanto tempo o carrossel troca de carro, e o esmaecer da troca. */
+        const val TROCA_MS = 5_000L
+        const val FADE_MS = 350L
     }
 }

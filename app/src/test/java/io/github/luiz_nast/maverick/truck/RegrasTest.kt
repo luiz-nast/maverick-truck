@@ -90,6 +90,17 @@ class RegrasTest {
     }
 
     @Test
+    fun oDiscursoTocaAPeloMenos40PorCento() {
+        // Volume de mídia do S24 FE: 15 degraus. 40% = 6
+        assertEquals(6, volumeDoDiscurso(0, 15))
+        assertEquals(6, volumeDoDiscurso(3, 15))
+        // Mais alto que 40%: fica como está (nunca abaixa)
+        assertEquals(10, volumeDoDiscurso(10, 15))
+        assertEquals(15, volumeDoDiscurso(15, 15))
+        assertEquals(10, volumeDoDiscurso(2, 25))
+    }
+
+    @Test
     fun relogioDaTela() {
         assertEquals("7:00", mmss(LIVRE_MS))
         assertEquals("0:01", mmss(1))

@@ -19,3 +19,9 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+---
+
+The images in app/src/main/res/drawable-nodpi/ (the car photos) are not covered by this license.
+They keep their own Creative Commons licenses (CC BY / CC BY-SA); see CREDITS.md for the author,
+license and source of each one.

@@ -490,7 +490,7 @@ class Escudo : VpnService() {
         }
         ligado = false
         rodando = false
-        cobertura.esconder()
+        cobertura.liberar()
         medidor.esconder()
         tunel?.let { runCatching { it.close() } }
         tunel = null
