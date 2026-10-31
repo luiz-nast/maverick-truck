@@ -9,6 +9,7 @@ import android.net.Uri
 import android.os.ParcelFileDescriptor
 import android.provider.OpenableColumns
 import android.util.Log
+import java.io.FileOutputStream
 import kotlin.math.roundToInt
 import kotlin.random.Random
 
@@ -33,14 +34,24 @@ object Musicas {
         val nome = ctx.contentResolver.query(origem, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
             ?.use { if (it.moveToFirst()) it.getString(0) else null } ?: "Sound"
         val destino = base.buildUpon().appendPath("novo").appendPath(nome).build()
-        ctx.contentResolver.openInputStream(origem)!!.use { entrada ->
-            ctx.contentResolver.openOutputStream(destino, "w")!!.use { saida -> entrada.copyTo(saida) }
+        // Fecha com erro se a cópia falhar no meio: assim o Tourbillon joga fora o pedaço, em vez de guardar uma música cortada
+        val pfd = ctx.contentResolver.openFileDescriptor(destino, "w")!!
+        try {
+            ctx.contentResolver.openInputStream(origem)!!.use { entrada ->
+                val saida = FileOutputStream(pfd.fileDescriptor)
+                entrada.copyTo(saida)
+                saida.flush()
+            }
+            pfd.close()
+        } catch (e: Throwable) {
+            runCatching { pfd.closeWithError("a cópia falhou") }
+            throw e
         }
         Log.i(TAG, "Músicas: mandado pra biblioteca: $nome")
         true
     }.onFailure { Log.w(TAG, "Músicas: não deu pra adicionar $origem", it) }.getOrDefault(false)
 
-    /** Apaga o som [nome] da biblioteca (some dos dois apps). Fora da linha principal. */
+    /** Apaga o som [nome] da biblioteca (some dos dois apps). O Tourbillon recusa um som em uso num alarme. Fora da linha principal. */
     fun apagar(ctx: Context, nome: String): Boolean = runCatching {
         ctx.contentResolver.delete(som(nome), null, null) > 0
     }.onFailure { Log.w(TAG, "Músicas: não apagou $nome", it) }.getOrDefault(false)

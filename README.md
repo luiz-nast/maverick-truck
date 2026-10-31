@@ -106,7 +106,7 @@ Most app blockers watch the screen through an accessibility service and press Ho
 ## Known limits
 
 - **The cover needs its permission.** The block is the cover, so without "Display over other apps" nothing stops you — grant it. The cover appears up to 1 second after you open the blocked app (the shield looks once a second).
-- **A browser leaving the site.** The shield reads a browser's site from its DNS, so for up to ~15 seconds after you leave Instagram/YouTube for another page in the *same browser* (even a bank page), the cover or pill can still show over it, until the shield sees the browser has moved on. In the app itself this never happens (usage is exact).
+- **A browser on the site.** The shield reads a browser's site from its DNS. Once the browser asks for Instagram/YouTube, it keeps counting while that browser stays in front, even when a playing video asks nothing more; it stops when you leave the browser or the browser asks for another site (a bank page ends it at once). Requests that come with those pages (Google, ads, Facebook CDN) do not end it. Switching to a tab that was already loaded can go unnoticed until you leave the browser.
 - **DNS over TCP** to the shield is not answered. Android uses it only for answers too big for UDP (rare with modern resolvers); such a name can fail to resolve while the shield is on. Set Private DNS to Automatic, not a fixed provider.
 - **Turning it off is possible from Android**: Settings › VPN, or the VPN tile, or uninstalling. Maverick Truck is a seatbelt, not a jail. It notifies you when the shield goes down.
 - **Another VPN replaces it.** Android runs one VPN at a time.

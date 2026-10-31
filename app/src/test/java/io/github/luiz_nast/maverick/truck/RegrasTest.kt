@@ -91,6 +91,27 @@ class RegrasTest {
     }
 
     @Test
+    fun oSiteNoNavegadorContaEnquantoONavegadorFicaNaFrente() {
+        val agora = 1_000_000L
+        val chrome = 10_150
+        val nav = setOf("com.android.chrome")
+        val yt = mapOf(Site.YOUTUBE to Consulta(agora - 8 * 60_000, chrome)) // pediu o YouTube há 8 min, vídeo rodando
+        val desde = agora - 9 * 60_000 // o Chrome está na frente desde antes
+        assertEquals(Site.YOUTUBE, siteEmUso("com.android.chrome", chrome, nav, yt, agora, desde, null))
+        // Pedidos de apoio (anúncio, conta Google) não tiram do site
+        assertTrue(deApoio("pagead2.googlesyndication.com"))
+        assertTrue(deApoio("accounts.google.com"))
+        assertFalse(deApoio("nubank.com.br"))
+        // Pediu outro site depois: saiu
+        val banco = Consulta(agora - 60_000, chrome)
+        assertNull(siteEmUso("com.android.chrome", chrome, nav, yt, agora, desde, banco))
+        // Outro app pedindo outro site não muda nada
+        assertEquals(Site.YOUTUBE, siteEmUso("com.android.chrome", chrome, nav, yt, agora, desde, Consulta(agora - 60_000, 10_999)))
+        // Saiu do navegador e voltou depois do pedido: só volta a contar quando o site for pedido de novo
+        assertNull(siteEmUso("com.android.chrome", chrome, nav, yt, agora, agora - 60_000, null))
+    }
+
+    @Test
     fun aMusicaComecaEm35PorCento() {
         // Volume de mídia do S24 FE: 15 degraus. 35% = 5,25 → 5
         assertEquals(5, volumeDaMusica(15))

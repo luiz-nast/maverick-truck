@@ -239,8 +239,10 @@ private fun CartaoDeMusicas(voltas: Int) {
     var recarga by remember { mutableIntStateOf(0) }
     var ocupado by remember { mutableStateOf(false) }
     var apagar by remember { mutableStateOf<String?>(null) }
-    val nomes by produceState<List<String>?>(null, voltas, recarga) {
+    var carregou by remember { mutableStateOf(false) }
+    val nomes by produceState<List<String>?>(emptyList(), voltas, recarga) {
         value = withContext(Dispatchers.IO) { Musicas.listar(ctx) }
+        carregou = true
     }
     val escolher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
@@ -262,7 +264,8 @@ private fun CartaoDeMusicas(voltas: Int) {
         Spacer(Modifier.height(8.dp))
         val lista = nomes
         when {
-            lista == null -> Text("Install Tourbillon Alarm to share its music library.", color = Laranja, fontSize = 14.sp)
+            !carregou -> Text("Loading…", color = Apagado, fontSize = 14.sp)
+            lista == null -> Text("Tourbillon Alarm is not available, so there is no music library to share.", color = Laranja, fontSize = 14.sp)
             lista.isEmpty() -> Text("No songs yet.", color = Apagado, fontSize = 14.sp)
             else -> for (nome in lista) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -271,7 +274,7 @@ private fun CartaoDeMusicas(voltas: Int) {
                 }
             }
         }
-        if (lista != null) {
+        if (carregou && lista != null) {
             TextButton(onClick = { escolher.launch(arrayOf("audio/*")) }, enabled = !ocupado) {
                 Text(if (ocupado) "Adding…" else "+ Add song", color = Laranja, fontWeight = FontWeight.Bold)
             }
@@ -286,7 +289,10 @@ private fun CartaoDeMusicas(voltas: Int) {
                 TextButton(onClick = {
                     apagar = null
                     escopo.launch {
-                        withContext(Dispatchers.IO) { Musicas.apagar(ctx, nome) }
+                        val ok = withContext(Dispatchers.IO) { Musicas.apagar(ctx, nome) }
+                        if (!ok) {
+                            Toast.makeText(ctx, "Not deleted: Tourbillon Alarm uses it (default or an alarm's sound). Change it there first.", Toast.LENGTH_LONG).show()
+                        }
                         recarga++
                     }
                 }) { Text("Delete", color = Vermelho) }

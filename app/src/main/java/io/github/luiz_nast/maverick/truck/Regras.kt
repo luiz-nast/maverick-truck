@@ -93,15 +93,49 @@ data class Consulta(val quando: Long, val uid: Int)
  * O site em uso agora, com a tela ligada: o app dele na frente ([naFrente], o pacote) ou um navegador na frente
  * ([navegadores], com o [uidNaFrente] dele) que pediu o site ao DNS há menos de [SITE_RECENTE_MS] ([ultimaConsulta]).
  * A pergunta de outro app (o YouTube Music tocando, um link no WhatsApp) não conta; a de quem o Android não diz quem
- * é ([PRIMEIRO_UID_DE_APP]), conta. Null: nenhum.
+ * é ([PRIMEIRO_UID_DE_APP]), conta.
+ *
+ * Depois disso o site continua em uso enquanto o mesmo navegador fica na frente sem parar (desde [naFrenteDesde]) e não
+ * pede ao DNS nenhum outro site ([outraConsulta], o último pedido dele que não é do site nem de apoio, [deApoio]): um
+ * vídeo no YouTube do navegador não pergunta mais nada ao DNS e antes parava de contar em 15 s (o dono, 10-31: 8 min no
+ * site viraram 1:47). Sair do navegador ou abrir outro site (um banco) termina na hora. Null: nenhum.
  */
-fun siteEmUso(naFrente: String?, uidNaFrente: Int?, navegadores: Set<String>, ultimaConsulta: Map<Site, Consulta>, agora: Long): Site? {
+fun siteEmUso(
+    naFrente: String?,
+    uidNaFrente: Int?,
+    navegadores: Set<String>,
+    ultimaConsulta: Map<Site, Consulta>,
+    agora: Long,
+    naFrenteDesde: Long = Long.MAX_VALUE,
+    outraConsulta: Consulta? = null,
+): Site? {
     if (naFrente == null) return null
     Site.entries.firstOrNull { naFrente in it.pacotes }?.let { return it }
     if (naFrente !in navegadores) return null
-    return ultimaConsulta
-        .filter { (_, c) -> agora - c.quando in 0..SITE_RECENTE_MS && (c.uid == uidNaFrente || c.uid < PRIMEIRO_UID_DE_APP) }
-        .maxByOrNull { it.value.quando }?.key
+    val (site, c) = ultimaConsulta.entries
+        .filter { (_, c) -> c.quando <= agora && (c.uid == uidNaFrente || c.uid < PRIMEIRO_UID_DE_APP) }
+        .maxByOrNull { it.value.quando }?.toPair() ?: return null
+    if (agora - c.quando <= SITE_RECENTE_MS) return site
+    val continuouNaFrente = c.quando >= naFrenteDesde
+    val foiPraOutro = outraConsulta != null && outraConsulta.uid == uidNaFrente && outraConsulta.quando > c.quando
+    return site.takeIf { continuouNaFrente && !foiPraOutro }
+}
+
+/**
+ * Nomes que uma página do YouTube ou do Instagram pede junto (anúncio, fonte, conta Google, o Facebook por trás do
+ * Instagram) e o próprio navegador pede sozinho: não querem dizer que a pessoa foi pra outro site.
+ */
+private val DE_APOIO = listOf(
+    "google.com", "gstatic.com", "googleapis.com", "googleusercontent.com", "ggpht.com", "gvt1.com", "gvt2.com",
+    "doubleclick.net", "googlesyndication.com", "googleadservices.com", "google-analytics.com", "googletagmanager.com",
+    "facebook.com", "facebook.net", "fbcdn.net", "fbsbx.com", "whatsapp.net", "samsung.com", "samsungapps.com",
+    "mozilla.com", "mozilla.net", "mozilla.org", "brave.com", "bravesoftware.com", "microsoft.com", "bing.com",
+)
+
+/** [host] é de apoio ([DE_APOIO]): pedir não tira ninguém do site regrado. */
+fun deApoio(host: String): Boolean {
+    val h = normalizar(host)
+    return DE_APOIO.any { dentroDe(h, it) }
 }
 
 /** "6:59", "15:00": minutos e segundos, arredondando o segundo pra cima (o 0:00 só no fim). */

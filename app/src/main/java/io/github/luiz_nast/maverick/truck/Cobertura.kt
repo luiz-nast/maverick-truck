@@ -212,7 +212,18 @@ class Cobertura(private val ctx: Context) {
             Log.i(TAG, "Tela de bloqueio: biblioteca de sons vazia (ou sem o Tourbillon), sem música")
             return
         }
-        val pedido = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT).setAudioAttributes(atributos()).build()
+        // Uma ligação ou um alarme tomando o som: a música pausa; perdeu de vez, para
+        val pedido = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
+            .setAudioAttributes(atributos())
+            .setOnAudioFocusChangeListener({ mudanca ->
+                when (mudanca) {
+                    AudioManager.AUDIOFOCUS_LOSS -> pararMusica()
+                    AudioManager.AUDIOFOCUS_LOSS_TRANSIENT, AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK ->
+                        runCatching { tocador?.pause() }
+                    AudioManager.AUDIOFOCUS_GAIN -> runCatching { tocador?.start() }
+                }
+            }, handler)
+            .build()
         if (audio.requestAudioFocus(pedido) != AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
             Log.i(TAG, "Tela de bloqueio: sem o foco de áudio (ligação?), sem música")
             return
@@ -256,7 +267,11 @@ class Cobertura(private val ctx: Context) {
                 val tocou = runCatching {
                     arquivo.use { mp.setDataSource(it.fileDescriptor) }
                     mp.setAudioAttributes(atributos())
-                    mp.setOnCompletionListener { tocarProximo(nomes) }
+                    mp.setOnCompletionListener {
+                        // Acabou quase na hora (arquivo quebrado): conta como erro, pra não girar sem parar
+                        if (it.currentPosition < 2_000) erros++ else erros = 0
+                        handler.postDelayed({ if (tocador === it) tocarProximo(nomes) }, 500)
+                    }
                     mp.setOnErrorListener { _, _, _ ->
                         erros++
                         tocarProximo(nomes)
@@ -266,7 +281,6 @@ class Cobertura(private val ctx: Context) {
                     mp.start()
                 }.onFailure { Log.w(TAG, "Tela de bloqueio: $nome não tocou", it) }.isSuccess
                 if (tocou) {
-                    erros = 0
                     tocador = mp
                     Log.i(TAG, "Tela de bloqueio: tocando $nome")
                 } else {

@@ -111,6 +111,10 @@ class Escudo : VpnService() {
     private var navegadores = emptySet<String>()
     private var uidsDosApps = emptySet<Int>() // os apps do Instagram e do YouTube: o DNS deles em segundo plano não é uso
     private val ultimaConsulta = ConcurrentHashMap<Site, Consulta>()
+    @Volatile
+    private var outraConsulta: Consulta? = null // o último pedido de outro site (nem regrado nem de apoio), de um app conhecido
+    private var ultimoNaFrente: String? = null
+    private var naFrenteDesde = 0L // desde quando [ultimoNaFrente] está na frente sem parar
     private val uids = HashMap<String, Int?>() // o uid de cada pacote que já esteve na frente
     private var ultimoTique = 0L
     private var gravadoEm = 0L
@@ -230,7 +234,11 @@ class Escudo : VpnService() {
         if (uso == null && Uso.liberado(this)) uso = Uso(this)
         val naFrente = if (telaLigada()) uso?.naFrente() else null
         val uidNaFrente = naFrente?.let { p -> uids.getOrPut(p) { runCatching { packageManager.getPackageUid(p, 0) }.getOrNull() } }
-        val emUso = siteEmUso(naFrente, uidNaFrente, navegadores, ultimaConsulta, agora)
+        if (naFrente != ultimoNaFrente) {
+            ultimoNaFrente = naFrente
+            naFrenteDesde = agora
+        }
+        val emUso = siteEmUso(naFrente, uidNaFrente, navegadores, ultimaConsulta, agora, naFrenteDesde, outraConsulta)
         // Uma rodada só: o tempo do Instagram e do YouTube soma junto, e o bloqueio vale pros dois ([Estado.rodada])
         val antes = Estado.rodada.value
         val depois = antes.avancar(agora, if (emUso != null) passou else 0L)
@@ -348,7 +356,13 @@ class Escudo : VpnService() {
         val (nome, _) = nomeDaPergunta(p.dns) ?: return
         val agora = System.currentTimeMillis()
         val site = siteDoDominio(nome)
-        if (site != null) anotar(site, p, agora)
+        if (site != null) {
+            anotar(site, p, agora)
+        } else if (!deApoio(nome)) {
+            // Outro site: se foi o navegador da frente que pediu, ele saiu do YouTube/Instagram
+            val uid = dono(p)
+            if (uid >= PRIMEIRO_UID_DE_APP) outraConsulta = Consulta(agora, uid)
+        }
         runCatching {
             consultas.execute {
                 // Esperou demais na fila (a rede trocou e o DNS demorou): o Android já perguntou de novo
@@ -365,15 +379,18 @@ class Escudo : VpnService() {
      * nele ([siteEmUso]). O pedido de outro app (o próprio Instagram em segundo plano, o YouTube Music) não conta.
      */
     private fun anotar(site: Site, p: PerguntaDns, agora: Long) {
-        val uid = runCatching {
-            getSystemService(ConnectivityManager::class.java).getConnectionOwnerUid(
-                OsConstants.IPPROTO_UDP,
-                InetSocketAddress(InetAddress.getByAddress(p.origem), p.portaOrigem),
-                InetSocketAddress(InetAddress.getByAddress(p.destino), p.portaDestino),
-            )
-        }.getOrDefault(Process.INVALID_UID)
+        val uid = dono(p)
         if (uid !in uidsDosApps) ultimaConsulta[site] = Consulta(agora, uid)
     }
+
+    /** O uid do app que fez a pergunta [p] (INVALID_UID se o Android não diz). */
+    private fun dono(p: PerguntaDns): Int = runCatching {
+        getSystemService(ConnectivityManager::class.java).getConnectionOwnerUid(
+            OsConstants.IPPROTO_UDP,
+            InetSocketAddress(InetAddress.getByAddress(p.origem), p.portaOrigem),
+            InetSocketAddress(InetAddress.getByAddress(p.destino), p.portaDestino),
+        )
+    }.getOrDefault(Process.INVALID_UID)
 
     /**
      * A pergunta pro DNS de verdade da rede (por fora do túnel); null se nenhum respondeu a tempo. O que respondeu vai
