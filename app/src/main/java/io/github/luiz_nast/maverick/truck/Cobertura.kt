@@ -3,9 +3,9 @@
 // "Aparecer sobre outros apps" (SYSTEM_ALERT_WINDOW), que é diferente de acessibilidade: o Nubank não implica com ela.
 //
 // No fundo, um carrossel de carros muito luxuosos (CARROS, fotos do Wikimedia Commons com licença livre, cada uma com o
-// carro, o autor e a licença embaixo); por cima, o aviso e o botão que leva pra tela inicial. Quando ela aparece, a voz
-// do celular lê o discurso (DISCURSO) a pelo menos 40% do volume de mídia, e o app de trás para o som enquanto isso (o
-// foco de áudio). O volume de antes volta quando o discurso acaba ou a tela some (o dono, 10-31).
+// carro, o autor e a licença embaixo); por cima, um vídeo motivacional (VIDEOS: Elon Musk, Guto Galamba, O Lobo de Wall
+// Street), o aviso e o botão que leva pra tela inicial. O vídeo toca pelo player oficial do YouTube, a partir do canal de
+// quem publicou, a pelo menos 40% do volume de mídia; o volume de antes volta quando a tela some (o dono, 10-31).
 //
 // Só aparece sobre o app do site bloqueado (o escudo só manda mostrar quando esse app está na frente); nunca sobre um
 // banco, o despertador ou qualquer outro. Sem a permissão, não faz nada.
@@ -16,21 +16,19 @@ import android.content.Intent
 import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.drawable.GradientDrawable
-import android.media.AudioAttributes
-import android.media.AudioFocusRequest
+import android.annotation.SuppressLint
 import android.media.AudioManager
 import android.os.Build
-import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
-import android.speech.tts.TextToSpeech
-import android.speech.tts.UtteranceProgressListener
 import android.util.Log
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
 import android.view.WindowManager
+import android.webkit.WebChromeClient
+import android.webkit.WebView
 import android.widget.Button
 import android.widget.FrameLayout
 import android.widget.ImageView
@@ -39,7 +37,6 @@ import android.widget.TextView
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-import java.util.Locale
 
 class Cobertura(private val ctx: Context) {
     private val janelas = ctx.getSystemService(WindowManager::class.java)
@@ -53,12 +50,9 @@ class Cobertura(private val ctx: Context) {
     private var siteNaTela: Site? = null
     private var indice = 0
 
-    private var voz: TextToSpeech? = null
-    private var vozPronta = false
-    private var falarQuandoPronta = false
-    private var volumeAntes: Int? = null // o volume de mídia de antes do discurso, pra devolver
-    private var volumeAlvo: Int? = null // o que o discurso pôs: se a pessoa mexeu depois, o dela fica
-    private var foco: AudioFocusRequest? = null
+    private var video: WebView? = null
+    private var volumeAntes: Int? = null // o volume de mídia de antes do vídeo, pra devolver
+    private var volumeAlvo: Int? = null // o que o vídeo pôs: se a pessoa mexeu depois, o dela fica
 
     /** A próxima foto do carrossel, a cada [TROCA_MS], com um esmaecer rápido. */
     private val trocar = object : Runnable {
@@ -80,7 +74,7 @@ class Cobertura(private val ctx: Context) {
             criar()
             if (vista == null) return
             handler.postDelayed(trocar, TROCA_MS)
-            discursar()
+            tocarVideo()
         }
         if (site != siteNaTela) {
             siteNaTela = site
@@ -90,7 +84,7 @@ class Cobertura(private val ctx: Context) {
         linha?.text = "Your ${LIVRE_MS / 60_000} minutes are up.\nFree again at $hora."
     }
 
-    /** Tira a tela, se estiver aparecendo; o discurso para e o volume de antes volta. */
+    /** Tira a tela, se estiver aparecendo; o vídeo para e o volume de antes volta. */
     fun esconder() {
         val v = vista ?: return
         vista = null
@@ -100,17 +94,12 @@ class Cobertura(private val ctx: Context) {
         linha = null
         siteNaTela = null
         handler.removeCallbacks(trocar)
-        calar()
+        pararVideo()
         runCatching { janelas.removeView(v) }
     }
 
-    /** O escudo acabou: a voz do celular é solta (sem ela, nada fica preso ao app). */
-    fun liberar() {
-        esconder()
-        voz?.shutdown()
-        voz = null
-        vozPronta = false
-    }
+    /** O escudo acabou: tira a tela (e com ela o vídeo). */
+    fun liberar() = esconder()
 
     private fun mostrarFoto() {
         val carro = CARROS[indice]
@@ -158,10 +147,25 @@ class Cobertura(private val ctx: Context) {
             setPadding(dp(48), dp(14), dp(48), dp(14))
             setOnClickListener { paraOInicio() }
         }
+        // O vídeo, em 16:9 na largura da tela (menos as margens), em cima do aviso
+        val largura = ctx.resources.displayMetrics.widthPixels - dp(32)
+        video = runCatching { criarVideo() }
+            .onFailure { Log.w(TAG, "Tela de bloqueio: sem o WebView, sem vídeo", it) }
+            .getOrNull()
         val meio = LinearLayout(ctx).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
-            setPadding(dp(32), dp(32), dp(32), dp(32))
+            setPadding(dp(16), dp(32), dp(16), dp(32))
+            video?.let { v ->
+                addView(v, LinearLayout.LayoutParams(largura, largura * 9 / 16))
+                addView(TextView(ctx).apply {
+                    text = "Clips play from the official YouTube channels of Paramount, USC, Lex Clips and oanimal.social"
+                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 10f)
+                    setTextColor(Color.parseColor("#99FFFFFF"))
+                    gravity = Gravity.CENTER
+                    setPadding(0, dp(6), 0, dp(24))
+                })
+            }
             addView(titulo)
             addView(linha)
             addView(botao)
@@ -194,94 +198,75 @@ class Cobertura(private val ctx: Context) {
             WindowManager.LayoutParams.MATCH_PARENT,
             WindowManager.LayoutParams.MATCH_PARENT,
             tipo,
-            // Não rouba o foco do teclado, mas recebe os toques (o fundo os consome); por cima das barras do sistema
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+            // Não rouba o foco do teclado, mas recebe os toques (o fundo os consome); por cima das barras do sistema; com a
+            // placa de vídeo (o player do YouTube precisa)
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+                WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
             PixelFormat.OPAQUE,
         )
         runCatching { janelas.addView(raiz, params) }
             .onSuccess { vista = raiz }
-            .onFailure { Log.w(TAG, "Tela de bloqueio: o Android não deixou mostrar", it) }
-    }
-
-    /** O discurso: a voz do celular, a pelo menos 40% do volume de mídia, com o som do app de trás pausado. */
-    private fun discursar() {
-        val v = voz
-        if (v == null) {
-            falarQuandoPronta = true
-            voz = TextToSpeech(ctx.applicationContext) { status ->
-                handler.post {
-                    vozPronta = status == TextToSpeech.SUCCESS
-                    val t = voz ?: return@post
-                    val idioma = if (vozPronta) t.setLanguage(Locale.US) else TextToSpeech.LANG_NOT_SUPPORTED
-                    if (idioma < TextToSpeech.LANG_AVAILABLE) {
-                        // Sem a voz em inglês (ou a voz não subiu): na próxima vez que a tela aparecer, tenta de novo
-                        Log.w(TAG, "Tela de bloqueio: sem voz em inglês no celular, sem discurso desta vez")
-                        t.shutdown()
-                        voz = null
-                        vozPronta = false
-                        falarQuandoPronta = false
-                        return@post
-                    }
-                    t.setAudioAttributes(atributos())
-                    t.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
-                        override fun onStart(id: String?) {}
-                        override fun onDone(id: String?) { handler.post { devolverSom() } }
-                        @Deprecated("Deprecated in Java")
-                        override fun onError(id: String?) { handler.post { devolverSom() } }
-                    })
-                    if (falarQuandoPronta && vista != null) falar(t)
-                    falarQuandoPronta = false
-                }
+            .onFailure {
+                Log.w(TAG, "Tela de bloqueio: o Android não deixou mostrar", it)
+                video?.destroy()
+                video = null
             }
-            return
-        }
-        if (vozPronta) falar(v) else falarQuandoPronta = true
     }
 
-    private fun falar(t: TextToSpeech) {
-        // O app de trás (um vídeo do Instagram) pausa o som enquanto o discurso toca. Sem o foco (uma ligação em
-        // andamento, por exemplo), nada de discurso nem de volume mexido
-        val pedido = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT).setAudioAttributes(atributos()).build()
-        if (audio.requestAudioFocus(pedido) != AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
-            Log.i(TAG, "Tela de bloqueio: sem o foco de áudio (ligação?), sem discurso")
+    @SuppressLint("SetJavaScriptEnabled")
+    private fun criarVideo(): WebView = WebView(ctx).apply {
+        setBackgroundColor(Color.BLACK)
+        settings.javaScriptEnabled = true // o player do YouTube é JavaScript
+        settings.mediaPlaybackRequiresUserGesture = false // começa sozinho, com som
+        webChromeClient = WebChromeClient()
+    }
+
+    /**
+     * Começa os vídeos: o volume de mídia sobe pra pelo menos 40% e o player do YouTube toca a fila, cada vez começando
+     * num clipe. Numa ligação, nada de vídeo nem de volume mexido.
+     */
+    private fun tocarVideo() {
+        val v = video ?: return
+        if (audio.mode != AudioManager.MODE_NORMAL) {
+            Log.i(TAG, "Tela de bloqueio: ligação em andamento, sem vídeo")
             return
         }
-        foco = pedido
         val maximo = audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
         val atual = audio.getStreamVolume(AudioManager.STREAM_MUSIC)
-        val alvo = volumeDoDiscurso(atual, maximo)
+        val alvo = volumeDosVideos(atual, maximo)
         if (alvo != atual) {
             volumeAntes = atual
             volumeAlvo = alvo
             runCatching { audio.setStreamVolume(AudioManager.STREAM_MUSIC, alvo, 0) }
         }
-        t.speak(DISCURSO, TextToSpeech.QUEUE_FLUSH, Bundle(), "discurso")
+        val fila = filaDeVideos((System.currentTimeMillis() / 60_000).toInt())
+        val endereco = "https://www.youtube.com/embed/${fila.first().id}?autoplay=1&playsinline=1&rel=0&loop=1" +
+            "&playlist=${fila.drop(1).joinToString(",") { it.id }}&origin=$ORIGEM"
+        val pagina = """<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1">
+            |<style>html,body{margin:0;height:100%;background:#000}iframe{border:0;width:100%;height:100%}</style></head>
+            |<body><iframe src="$endereco" allow="autoplay; encrypted-media; picture-in-picture"
+            |referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe></body></html>""".trimMargin()
+        // O YouTube pede uma origem de verdade pra tocar incorporado: a página do projeto no GitHub
+        v.loadDataWithBaseURL("$ORIGEM/", pagina, "text/html", "utf-8", null)
     }
 
-    /** A voz para (a tela sumiu) e o som volta como estava. */
-    private fun calar() {
-        falarQuandoPronta = false
-        voz?.stop()
-        devolverSom()
-    }
-
-    /** Devolve o volume de antes do discurso e o foco de áudio pro app de trás. */
-    private fun devolverSom() {
+    /** O vídeo para (a tela sumiu) e o volume volta como estava. */
+    private fun pararVideo() {
+        video?.let {
+            runCatching {
+                it.loadUrl("about:blank")
+                it.destroy()
+            }
+        }
+        video = null
         val antes = volumeAntes
-        // Só se o volume ainda é o que o discurso pôs: se a pessoa mexeu (ou trocou pro fone), o dela fica
+        // Só se o volume ainda é o que o vídeo pôs: se a pessoa mexeu (ou trocou pro fone), o dela fica
         if (antes != null && audio.getStreamVolume(AudioManager.STREAM_MUSIC) == volumeAlvo) {
             runCatching { audio.setStreamVolume(AudioManager.STREAM_MUSIC, antes, 0) }
         }
         volumeAntes = null
         volumeAlvo = null
-        foco?.let { audio.abandonAudioFocusRequest(it) }
-        foco = null
     }
-
-    private fun atributos(): AudioAttributes = AudioAttributes.Builder()
-        .setUsage(AudioAttributes.USAGE_MEDIA)
-        .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
-        .build()
 
     /** Vai pra tela inicial (tira o app bloqueado da frente). A tela por cima some no próximo tique, porque o app saiu da frente. */
     private fun paraOInicio() {
@@ -295,5 +280,8 @@ class Cobertura(private val ctx: Context) {
         /** De quanto em quanto tempo o carrossel troca de carro, e o esmaecer da troca. */
         const val TROCA_MS = 5_000L
         const val FADE_MS = 350L
+
+        /** A origem que o player do YouTube vê (a página do projeto no GitHub). */
+        const val ORIGEM = "https://luiz-nast.github.io"
     }
 }

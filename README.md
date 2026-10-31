@@ -15,7 +15,7 @@ Maverick Truck is the phone sibling of [Maverick](https://github.com/luiz-nast/m
 | Permissions | Usage access, local VPN, cover blocked apps, notifications, unrestricted battery |
 | Network | Nothing goes to any server of ours: there is none |
 | App ID | `io.github.luiz_nast.maverick.truck` |
-| License | MIT (code and speech); car photos under their own CC BY / CC BY-SA licenses, see [CREDITS.md](CREDITS.md) |
+| License | MIT (code); car photos under their own CC BY / CC BY-SA licenses; the motivational clips are not in the repo, they play from their owners' YouTube channels. See [CREDITS.md](CREDITS.md) |
 
 ## The cycle
 
@@ -53,7 +53,7 @@ flowchart LR
 
 1. **It counts, it does not cut.** Every second the screen is on, the shield sees which app is in front. If it is Instagram or YouTube (the app, or a browser on the site), it adds to that site's round. At 7 minutes the site is blocked for 15 minutes by the clock. Your internet is never touched.
 2. **A floating counter while you scroll.** While Instagram or YouTube is in front and still free, a small pill shows the shared time, "YouTube 5:12 / 7:00", greener to redder as it fills (`Medidor`) — the same idea as the desktop Maverick's counter. You can drag it anywhere and it stays there; it shows only over those apps.
-3. **Blocked means you are thrown out.** While a site is blocked and its app is in front, a full-screen cover appears over it, with a carousel of very luxurious cars in the background (a new one every 5 s; freely licensed photos from Wikimedia Commons, each credited on screen, see [CREDITS.md](CREDITS.md)) and the phone's own voice reading a short motivational speech written for this app (`Discurso.kt`) at **at least 40% of the media volume** (it never lowers a louder volume; the app behind is paused while it speaks, and the volume goes back to what it was when the speech ends or the cover goes away). On top: "Instagram is blocked — free again at 14:32" — with a **Leave** button that goes Home (`Cobertura`). A browser sitting on a blocked site gets the same cover. The cover shows only over the Instagram and YouTube apps and over a browser on those sites: never over a bank, the alarm, or anything else.
+3. **Blocked means you are thrown out.** While a site is blocked and its app is in front, a full-screen cover appears over it, with a carousel of very luxurious cars in the background (a new one every 5 s; freely licensed photos from Wikimedia Commons, each credited on screen, see [CREDITS.md](CREDITS.md)) and motivational clips on top (Elon Musk, Guto Galamba, The Wolf of Wall Street), played by YouTube's official embedded player from the channels that published them, always at 40% or more of the media volume (`Videos.kt`; the volume goes back when the cover leaves, unless you changed it). On top: "Instagram is blocked — free again at 14:32" — with a **Leave** button that goes Home (`Cobertura`). A browser sitting on a blocked site gets the same cover. The cover shows only over the Instagram and YouTube apps and over a browser on those sites: never over a bank, the alarm, or anything else.
 4. **Seeing a browser's site needs the DNS tunnel.** Without an accessibility service, the only way to know a browser is on youtube.com is the DNS it asks for. So the shield is a local VPN whose single route is a fake DNS server (`10.215.173.2`); every app's DNS question passes through, the shield notes the ones for Instagram and YouTube (and who asked), and forwards every question to your real DNS and hands the answer straight back. It blocks nothing and your traffic never goes through it. Answers for ruled names get a 10-second lifetime so the browser keeps asking, which is how the shield knows it is still on the site.
 5. **Usage comes from Android's usage history** (the "Usage access" permission), read once per second while the screen is on.
 
@@ -125,10 +125,10 @@ Most app blockers watch the screen through an accessibility service and press Ho
 | `Uso.kt` | Which app is on screen (`UsageStatsManager.queryEvents`), whether usage access is granted, which apps are browsers |
 | `Estado.kt` | What is saved on the phone: on/off and the single shared round (Instagram + YouTube); the screen reads it as `StateFlow` |
 | `Notificacoes.kt` | The ongoing status notification and the "blocked" heads-up |
-| `MainActivity.kt` | The screen: the shared "Instagram & YouTube" ring, TURN ON / Turn off, permissions, the Private DNS warning |
+| `MainActivity.kt` | The screen: the shared "Instagram & YouTube" ring, TURN ON (there is no off switch), permissions, the Private DNS warning |
 | `Cobertura.kt` | The full-screen cover shown over a blocked app while it is in front (`SYSTEM_ALERT_WINDOW`); never over a bank |
 | `Carros.kt` | The car photos of the cover's carousel (`res/drawable-nodpi/carro_XX.jpg`) and their on-screen credit lines |
-| `Discurso.kt` | The motivational speech, and `volumeDoDiscurso` (at least 40% of the media volume, never lower than it already was) |
+| `Videos.kt` | The motivational clips (YouTube IDs and channels), their order, and `volumeDosVideos` (at least 40% of the media volume, never lower than it already was) |
 | `Medidor.kt` | The small floating pill (same permission) with "used / 7:00", shown while Instagram or YouTube is in front and still free; drag it anywhere and it remembers the spot; like the desktop Maverick's counter; never over a bank |
 | `BootReceiver.kt` | Brings the shield back after a reboot or an app update |
 
@@ -140,7 +140,7 @@ Code and comments are in Portuguese, like the sibling projects; everything on sc
 - **One leash for both (owner, 2026-10-31).** The 7 minutes are Instagram and YouTube together, and the block covers both, so a blocked Instagram cannot be dodged by opening YouTube.
 - **Eject, do not cut.** Cutting the network left the already-loaded feed scrolling and never took you off the screen, so it did not feel like a block. A cover over the app does. The DNS tunnel stays only as a sensor, to tell when a browser is on a blocked site; it forwards every question untouched, so it cannot slow a download or break an app that is not ruled.
 
-- **Stop only when nothing is blocked.** Turning off in the middle of a block would make the block a suggestion.
+- **No off switch.** Once on, the app has no Turn off button: an off switch would make every block a suggestion.
 
 ## Build
 

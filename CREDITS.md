@@ -6,7 +6,6 @@ The car photos on the block screen come from [Wikimedia Commons](https://commons
 
 | File | Car | Author | License | Source |
 |---|---|---|---|---|
-| `app/src/main/res/drawable-nodpi/carro_01.jpg` | Rolls-Royce Phantom | Dietmar Rabich | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | [File:Dülmen, Rolls-Royce Phantom II -- 2024 -- 5829.jpg](https://commons.wikimedia.org/wiki/File:D%C3%BClmen,_Rolls-Royce_Phantom_II_--_2024_--_5829.jpg) |
 | `app/src/main/res/drawable-nodpi/carro_02.jpg` | Rolls-Royce Cullinan | Tristan Surtel | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | [File:2020 Rolls-Royce Cullinan cropped.jpg](https://commons.wikimedia.org/wiki/File:2020_Rolls-Royce_Cullinan_cropped.jpg) |
 | `app/src/main/res/drawable-nodpi/carro_03.jpg` | Bugatti Chiron | Calreyn88 | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | [File:Bugatti Chiron 1.jpg](https://commons.wikimedia.org/wiki/File:Bugatti_Chiron_1.jpg) |
 | `app/src/main/res/drawable-nodpi/carro_04.jpg` | Bugatti Divo | MrWalkr | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | [File:2021 Bugatti Divo Yellow.jpg](https://commons.wikimedia.org/wiki/File:2021_Bugatti_Divo_Yellow.jpg) |
@@ -21,6 +20,19 @@ The car photos on the block screen come from [Wikimedia Commons](https://commons
 
 Under CC BY-SA, these resized copies are shared under the same license as each original. The block screen shows the car, the author and the license under each photo, plus the address of this file, which has the license and source links.
 
-## Motivational speech
+## Motivational videos
 
-The speech on the block screen (`Discurso.kt`) was written for this project and is under the same MIT license as the code. The phone's own text-to-speech voice reads it; no recorded audio from anyone else is included.
+The block screen plays motivational clips (Elon Musk, Guto Galamba, The Wolf of Wall Street) through YouTube's official embedded player, straight from the channels that published them. **No video or audio is included in this app or in this repository**: only the video IDs in `Videos.kt`. The rights stay with each channel, and every play counts as a view on YouTube. Only channels that allow embedding are used.
+
+| Clip | Channel |
+|---|---|
+| [The Wolf of Wall Street: Wall Street Keys To Success](https://www.youtube.com/watch?v=pzLQLpEDjvc) | Paramount Plus |
+| [The Wolf of Wall Street: First Day on Wall Street](https://www.youtube.com/watch?v=oz4TO7YxQRc) | Paramount Pictures |
+| [The Wolf of Wall Street: Sides](https://www.youtube.com/watch?v=ViEjSgM4hIs) | Paramount Pictures |
+| [Elon Musk USC Commencement Speech (2014)](https://www.youtube.com/watch?v=e7Qh-vwpYH8) | USC |
+| [Elon Musk: Advice for Young People](https://www.youtube.com/watch?v=M-ZH3psUbfU) | Lex Clips |
+| [Elon Musk: we'll get it done](https://www.youtube.com/watch?v=KoihlAl7ugQ) | Lex Clips |
+| [Guto Galamba: Se você é ambicioso mas procrastina, assista isso](https://www.youtube.com/watch?v=JDd9CGZsABQ) | oanimal.social |
+| [Guto Galamba: Foque em você, a disciplina vence o talento](https://www.youtube.com/watch?v=-I8-EZuHEcY) | oanimal.social |
+| [Guto Galamba: Me dê 13 minutos e 39 segundos e eu te deixo viciado em disciplina](https://www.youtube.com/watch?v=mfo8OPYrsnw) | oanimal.social |
+| [Guto Galamba: A técnica para se controlar e vencer a procrastinação](https://www.youtube.com/watch?v=bRmpxFGdBdE) | oanimal.social |

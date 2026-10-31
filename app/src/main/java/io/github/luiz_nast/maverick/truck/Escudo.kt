@@ -55,7 +55,6 @@ class Escudo : VpnService() {
 
     companion object {
         private const val ACAO_LIGAR = "ligar"
-        private const val ACAO_DESLIGAR = "desligar"
 
         /** O endereço do celular dentro do túnel e o "servidor de DNS" que só existe nele. */
         private const val ENDERECO = "10.215.173.1"
@@ -90,11 +89,6 @@ class Escudo : VpnService() {
         /** Liga o escudo (a permissão da VPN já dada: [VpnService.prepare] devolve null). */
         fun ligar(ctx: Context) {
             ContextCompat.startForegroundService(ctx, Intent(ctx, Escudo::class.java).setAction(ACAO_LIGAR))
-        }
-
-        /** Desliga, se nenhum site está bloqueado agora (no meio de um bloqueio, não). */
-        fun desligar(ctx: Context) {
-            ctx.startService(Intent(ctx, Escudo::class.java).setAction(ACAO_DESLIGAR))
         }
     }
 
@@ -173,16 +167,6 @@ class Escudo : VpnService() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         Estado.carregar(this)
         Notificacoes.criarCanais(this)
-        if (intent?.action == ACAO_DESLIGAR) {
-            if (Estado.bloqueado(System.currentTimeMillis())) {
-                Log.i(TAG, "Escudo: no meio de um bloqueio não desliga")
-                return START_STICKY // o escudo segue; morto pelo Android, ele volta
-            }
-            Log.i(TAG, "Escudo: desligado")
-            Estado.ligar(false)
-            parar()
-            return START_NOT_STICKY
-        }
         // Reiniciado pelo Android (intent nulo) com o escudo desligado pelo dono: nada a fazer
         if (intent == null && !Estado.ligado.value) {
             stopSelf()

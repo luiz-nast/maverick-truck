@@ -1,4 +1,4 @@
-// A tela do app: a rodada de cada site (o anel), o botão de ligar e desligar e as permissões. Quem conta e bloqueia
+// A tela do app: a rodada de cada site (o anel), o botão de ligar (desligar não tem: o dono, 10-31) e as permissões. Quem conta e bloqueia
 // é o escudo ([Escudo]); aqui só se desenha o [Estado].
 package io.github.luiz_nast.maverick.truck
 
@@ -87,7 +87,6 @@ class MainActivity : ComponentActivity() {
             MaterialTheme(colorScheme = darkColorScheme(primary = Laranja, background = Fundo, surface = Cartao)) {
                 Tela(
                     onLigar = ::ligar,
-                    onDesligar = { Escudo.desligar(this) },
                     onNotificacoes = { if (Build.VERSION.SDK_INT >= 33) pedirNotificacoes.launch(Manifest.permission.POST_NOTIFICATIONS) },
                 )
             }
@@ -122,7 +121,7 @@ private fun dnsParticular(ctx: Context): String? {
 }
 
 @Composable
-private fun Tela(onLigar: () -> Unit, onDesligar: () -> Unit, onNotificacoes: () -> Unit) {
+private fun Tela(onLigar: () -> Unit, onNotificacoes: () -> Unit) {
     val ctx = LocalContext.current
     val ligado by Estado.ligado.collectAsStateWithLifecycle()
     val rodada by Estado.rodada.collectAsStateWithLifecycle()
@@ -157,7 +156,6 @@ private fun Tela(onLigar: () -> Unit, onDesligar: () -> Unit, onNotificacoes: ()
         )
     }
     val particular = remember(voltas) { dnsParticular(ctx) }
-    val bloqueado = rodada.bloqueada(agora)
 
     Column(
         Modifier.fillMaxSize().background(Fundo).safeDrawingPadding().verticalScroll(rememberScrollState()).padding(20.dp),
@@ -178,10 +176,6 @@ private fun Tela(onLigar: () -> Unit, onDesligar: () -> Unit, onNotificacoes: ()
                 colors = ButtonDefaults.buttonColors(containerColor = Laranja, contentColor = Fundo),
             ) { Text("TURN ON", fontSize = 18.sp, fontWeight = FontWeight.Black) }
             if (!pronto) Text("Allow usage access first.", color = Apagado, fontSize = 14.sp, modifier = Modifier.padding(top = 6.dp))
-        } else {
-            TextButton(onClick = onDesligar, enabled = !bloqueado, modifier = Modifier.fillMaxWidth()) {
-                Text(if (bloqueado) "Turning off waits until nothing is blocked" else "Turn off", fontSize = 15.sp)
-            }
         }
         if (particular != null) {
             Spacer(Modifier.height(12.dp))

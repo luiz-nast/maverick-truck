@@ -11,7 +11,6 @@ data class Carro(val desenho: Int, val legenda: String)
 const val CREDITOS = "Licenses & sources: github.com/luiz-nast/maverick-truck/blob/main/CREDITS.md"
 
 val CARROS = listOf(
-    Carro(R.drawable.carro_01, "Rolls-Royce Phantom · Photo: Dietmar Rabich · CC BY-SA 4.0"),
     Carro(R.drawable.carro_02, "Rolls-Royce Cullinan · Photo: Tristan Surtel · CC BY-SA 4.0"),
     Carro(R.drawable.carro_03, "Bugatti Chiron · Photo: Calreyn88 · CC BY-SA 4.0"),
     Carro(R.drawable.carro_04, "Bugatti Divo · Photo: MrWalkr · CC BY-SA 4.0"),

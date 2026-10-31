@@ -90,14 +90,22 @@ class RegrasTest {
     }
 
     @Test
-    fun oDiscursoTocaAPeloMenos40PorCento() {
+    fun osVideosTocamAPeloMenos40PorCento() {
         // Volume de mídia do S24 FE: 15 degraus. 40% = 6
-        assertEquals(6, volumeDoDiscurso(0, 15))
-        assertEquals(6, volumeDoDiscurso(3, 15))
+        assertEquals(6, volumeDosVideos(0, 15))
+        assertEquals(6, volumeDosVideos(3, 15))
         // Mais alto que 40%: fica como está (nunca abaixa)
-        assertEquals(10, volumeDoDiscurso(10, 15))
-        assertEquals(15, volumeDoDiscurso(15, 15))
-        assertEquals(10, volumeDoDiscurso(2, 25))
+        assertEquals(10, volumeDosVideos(10, 15))
+        assertEquals(15, volumeDosVideos(15, 15))
+        assertEquals(10, volumeDosVideos(2, 25))
+    }
+
+    @Test
+    fun aFilaDeVideosDaAVoltaSemPerderNenhum() {
+        assertEquals(VIDEOS, filaDeVideos(0))
+        assertEquals(VIDEOS[3], filaDeVideos(3).first())
+        assertEquals(VIDEOS.last(), filaDeVideos(-1).first())
+        assertEquals(VIDEOS.toSet(), filaDeVideos(7 + VIDEOS.size).toSet())
     }
 
     @Test
