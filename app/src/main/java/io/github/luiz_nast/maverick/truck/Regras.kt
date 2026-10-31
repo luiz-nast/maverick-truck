@@ -13,26 +13,25 @@ const val TIQUE_MAX_MS = 2_000L
 
 /**
  * Um navegador na frente conta como uso de um site se o site foi pedido ao DNS por ele há menos disto. As respostas
- * dos sites regrados vão com validade curta ([TTL_REGRADO_S]), então o navegador pergunta de novo a cada poucos
- * segundos enquanto o site está aberto; a margem cobre o cache do próprio navegador e a conexão reaproveitada.
+ * dos sites regrados vão com validade curta ([TTL_REGRADO_S] = 10 s), então o navegador pergunta de novo a cada poucos
+ * segundos enquanto o site está aberto. A janela é curta (um pouco acima do TTL) de propósito: se ele sair do site pra
+ * outra página — um banco, por exemplo —, a tela de bloqueio e a plaquinha somem de cima dela em poucos segundos, não
+ * em um minuto (revisão de 10-31: 60 s deixava a tela por cima de um banco por tempo demais).
  */
-const val SITE_RECENTE_MS = 60_000L
+const val SITE_RECENTE_MS = 15_000L
 
 /** Validade (em segundos) das respostas de DNS dos sites regrados: o celular pergunta de novo logo, e um bloqueio pega rápido. */
 const val TTL_REGRADO_S = 10
 
 /**
- * Os sites regrados: os [pacotes] dos apps deles e os [dominios] (com os subdomínios) que o escudo recusa no bloqueio.
- * Dos [dominiosDeIp], o escudo também guarda os endereços que o DNS respondeu, pra cortar no bloqueio as conexões que
- * já estavam abertas: só os que servem a esse site e nada mais (os servidores de vídeo do YouTube, os do Instagram).
- * Os do Google em geral (youtube.com, ytimg.com) ficam de fora: servem também a busca e o Gmail.
+ * Os sites regrados: os [pacotes] dos apps deles e os [dominios] (com os subdomínios) pelos quais o escudo reconhece,
+ * no DNS, que um navegador está no site. O escudo não corta nada: só percebe e ejeta (a tela de bloqueio por cima).
  */
-enum class Site(val nome: String, val pacotes: Set<String>, val dominios: List<String>, val dominiosDeIp: List<String>) {
+enum class Site(val nome: String, val pacotes: Set<String>, val dominios: List<String>) {
     INSTAGRAM(
         "Instagram",
         setOf("com.instagram.android", "com.instagram.lite"),
         listOf("instagram.com", "cdninstagram.com", "instagr.am", "ig.me"),
-        listOf("instagram.com", "cdninstagram.com"),
     ),
     YOUTUBE(
         "YouTube",
@@ -41,7 +40,6 @@ enum class Site(val nome: String, val pacotes: Set<String>, val dominios: List<S
             "youtube.com", "youtu.be", "youtube-nocookie.com", "youtubekids.com", "ytimg.com", "googlevideo.com",
             "youtubei.googleapis.com", "youtube.googleapis.com", "yt3.ggpht.com", "yt4.ggpht.com",
         ),
-        listOf("googlevideo.com"),
     ),
 }
 
@@ -60,21 +58,6 @@ fun siteDoDominio(host: String): Site? {
     if (h.isEmpty()) return null
     if (cdnDoInstagram(h)) return Site.INSTAGRAM
     return Site.entries.firstOrNull { site -> site.dominios.any { dentroDe(h, it) } }
-}
-
-/**
- * Os servidores de vídeo do YouTube ("rr3---sn-oxu8pnpvo-ua8l.googlevideo.com"). Os outros nomes de googlevideo.com
- * (manifest, redirector) moram nos servidores gerais do Google, que servem também a Play Store: esses não (revisão de 10-31).
- */
-private val VIDEO_DO_YOUTUBE = Regex("^rr\\d+(---|\\.)sn-[a-z0-9-]+\\.googlevideo\\.com$")
-
-/** Os endereços que o DNS responder pra [host] servem só ao site dele (e o escudo pode cortá-los no bloqueio)? */
-fun guardaEnderecos(host: String): Boolean {
-    val h = normalizar(host)
-    if (cdnDoInstagram(h)) return true
-    if (dentroDe(h, "googlevideo.com")) return VIDEO_DO_YOUTUBE.matches(h)
-    val site = siteDoDominio(h) ?: return false
-    return site.dominiosDeIp.any { dentroDe(h, it) }
 }
 
 /**

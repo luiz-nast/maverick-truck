@@ -51,38 +51,6 @@ class DnsTest {
     }
 
     @Test
-    fun respondeNaoExiste() {
-        val q = pergunta("youtube.com")
-        val r = respostaNaoExiste(q)!!
-        assertEquals(0x12, r[0].toInt())
-        assertEquals(0x34, r[1].toInt())
-        assertEquals(0x81, r[2].toInt() and 0xFF) // resposta, com a "recursão desejada" da pergunta
-        assertEquals(3, r[3].toInt() and 0x0F) // NXDOMAIN
-        assertEquals(1, r[5].toInt()) // a pergunta vai de volta
-        assertEquals(0, r[7].toInt()) // e nenhuma resposta
-        assertEquals("youtube.com", nomeDaPergunta(r)?.first)
-        assertEquals(q.size, r.size)
-    }
-
-    @Test
-    fun leOsEnderecosDeUmaResposta() {
-        val q = pergunta("i.instagram.com")
-        // Resposta: um CNAME (com o nome comprimido apontando pra pergunta) e um A
-        val cabecalho = byteArrayOf(0x12, 0x34, 0x81.toByte(), 0x80.toByte(), 0, 1, 0, 2, 0, 0, 0, 0)
-        val pergunta = q.copyOfRange(12, q.size)
-        val cname = byteArrayOf(0xC0.toByte(), 12, 0, 5, 0, 1, 0, 0, 0, 60, 0, 2, 0xC0.toByte(), 12)
-        val a = byteArrayOf(0xC0.toByte(), 12, 0, 1, 0, 1, 0, 0, 0, 60, 0, 4, 157.toByte(), 240.toByte(), 12, 63)
-        val resposta = cabecalho + pergunta + cname + a
-        val enderecos = enderecosDaResposta(resposta)
-        assertEquals(1, enderecos.size)
-        assertEquals("157.240.12.63", textoDoEndereco(enderecos[0]))
-        // Um erro (NXDOMAIN) não tem endereço
-        assertEquals(0, enderecosDaResposta(respostaNaoExiste(q)!!).size)
-        // Truncada no meio: o que deu pra ler
-        assertEquals(0, enderecosDaResposta(resposta.copyOf(resposta.size - 3)).size)
-    }
-
-    @Test
     fun encurtaAValidadeDasRespostas() {
         val q = pergunta("rr3---sn-x.googlevideo.com")
         val cabecalho = byteArrayOf(0x12, 0x34, 0x81.toByte(), 0x80.toByte(), 0, 1, 0, 1, 0, 0, 0, 1)
@@ -95,28 +63,8 @@ class DnsTest {
         assertEquals(listOf(0, 0, 0, 10), (ttlDoA until ttlDoA + 4).map { curta[it].toInt() and 0xFF })
         val optInicio = resposta.size - opt.size
         assertArrayEquals(opt, curta.copyOfRange(optInicio, curta.size))
-        // O resto, igual; e o endereço continua lá
-        assertEquals("142.250.1.1", textoDoEndereco(enderecosDaResposta(curta)[0]))
         // Validade menor que o máximo fica como está
         assertArrayEquals(curta, encurtarTtl(curta, 10))
-    }
-
-    @Test
-    fun soEnderecosDaInternetDeVerdade() {
-        fun v4(vararg b: Int) = b.map { it.toByte() }.toByteArray()
-        assertTrue(enderecoPublico(v4(157, 240, 12, 63)))
-        assertTrue(enderecoPublico(v4(142, 250, 79, 46)))
-        assertFalse(enderecoPublico(v4(192, 168, 0, 1)))
-        assertFalse(enderecoPublico(v4(10, 0, 0, 1)))
-        assertFalse(enderecoPublico(v4(172, 20, 1, 1)))
-        assertFalse(enderecoPublico(v4(100, 64, 0, 1)))
-        assertFalse(enderecoPublico(v4(127, 0, 0, 1)))
-        assertFalse(enderecoPublico(v4(0, 0, 0, 0)))
-        assertFalse(enderecoPublico(v4(224, 0, 0, 1)))
-        assertTrue(enderecoPublico(java.net.InetAddress.getByName("2a03:2880:f12f:83:face:b00c:0:25de").address))
-        assertFalse(enderecoPublico(java.net.InetAddress.getByName("fe80::1").address))
-        assertFalse(enderecoPublico(java.net.InetAddress.getByName("fd00::1").address))
-        assertFalse(enderecoPublico(java.net.InetAddress.getByName("::1").address))
     }
 
     /** Soma de verificação de [n] bytes a partir de [i]: 0 quando o campo de soma dentro deles está certo. */

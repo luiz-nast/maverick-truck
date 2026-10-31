@@ -29,23 +29,6 @@ class RegrasTest {
     }
 
     @Test
-    fun soOsEnderecosQueServemSoAoSite() {
-        assertTrue(guardaEnderecos("i.instagram.com"))
-        assertTrue(guardaEnderecos("scontent-gru2-1.cdninstagram.com"))
-        assertTrue(guardaEnderecos("instagram.fbsb1-1.fna.fbcdn.net"))
-        assertTrue(guardaEnderecos("rr3---sn-oxu8pnpvo-ua8l.googlevideo.com"))
-        assertTrue(guardaEnderecos("rr1.sn-oxu8pnpvo-ua8l.googlevideo.com"))
-        // Os outros nomes de googlevideo.com moram nos servidores gerais do Google (servem também a Play Store)
-        assertFalse(guardaEnderecos("manifest.googlevideo.com"))
-        assertFalse(guardaEnderecos("redirector.googlevideo.com"))
-        // Os do Google em geral servem também a busca e o Gmail: o bloqueio deles é só pelo DNS
-        assertFalse(guardaEnderecos("www.youtube.com"))
-        assertFalse(guardaEnderecos("i.ytimg.com"))
-        assertFalse(guardaEnderecos("youtubei.googleapis.com"))
-        assertFalse(guardaEnderecos("www.google.com"))
-    }
-
-    @Test
     fun seteMinutosDeUsoEQuinzeBloqueado() {
         var r = Rodada()
         var agora = 1_000_000L

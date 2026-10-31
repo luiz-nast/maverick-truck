@@ -2,7 +2,6 @@
 // pacote IPv4/UDP, responder "não existe" (NXDOMAIN), ler os endereços de uma resposta e montar o pacote de volta.
 package io.github.luiz_nast.maverick.truck
 
-import java.net.InetAddress
 
 /** Uma pergunta de DNS que chegou pelo túnel: de quem ([origem]:[portaOrigem]), pra quem ([destino]:[portaDestino]) e a mensagem. */
 class PerguntaDns(val origem: ByteArray, val destino: ByteArray, val portaOrigem: Int, val portaDestino: Int, val dns: ByteArray)
@@ -56,20 +55,6 @@ fun nomeDaPergunta(dns: ByteArray): Pair<String, Int>? {
     return nome.toString().lowercase() to i + 4
 }
 
-/**
- * A resposta "esse nome não existe" (NXDOMAIN) pra [pergunta]: a mesma identificação, a pergunta repetida e nenhuma
- * resposta. O app (ou o navegador) desiste na hora, sem esperar. Null se a pergunta não dá pra ler.
- */
-fun respostaNaoExiste(pergunta: ByteArray): ByteArray? {
-    val (_, fim) = nomeDaPergunta(pergunta) ?: return null
-    val r = pergunta.copyOfRange(0, fim)
-    r[2] = (0x80 or (pergunta[2].toInt() and 0x79)).toByte() // resposta, o mesmo opcode, o mesmo "recursão desejada"
-    r[3] = (0x80 or 3).toByte() // recursão disponível; código 3, NXDOMAIN
-    escrever16(r, 4, 1)
-    for (k in 6..11) r[k] = 0
-    return r
-}
-
 /** Depois de um nome em [dns] a partir de [inicio] (com ou sem compressão); null se o nome passa do fim. */
 private fun pularNome(dns: ByteArray, inicio: Int): Int? {
     var i = inicio
@@ -83,28 +68,6 @@ private fun pularNome(dns: ByteArray, inicio: Int): Int? {
         }
     }
     return null
-}
-
-/** Os endereços (IPv4 dos registros A, IPv6 dos AAAA) da seção de respostas de [dns]; vazio se é erro ou não dá pra ler. */
-fun enderecosDaResposta(dns: ByteArray): List<ByteArray> {
-    if (dns.size < 12 || dns[3].toInt() and 0x0F != 0) return emptyList()
-    var i = 12
-    repeat(u16(dns, 4)) {
-        i = pularNome(dns, i) ?: return emptyList()
-        i += 4
-    }
-    val enderecos = mutableListOf<ByteArray>()
-    repeat(u16(dns, 6)) {
-        i = pularNome(dns, i) ?: return enderecos
-        if (i + 10 > dns.size) return enderecos
-        val tipo = u16(dns, i)
-        val tamanho = u16(dns, i + 8)
-        i += 10
-        if (i + tamanho > dns.size) return enderecos
-        if ((tipo == 1 && tamanho == 4) || (tipo == 28 && tamanho == 16)) enderecos += dns.copyOfRange(i, i + tamanho)
-        i += tamanho
-    }
-    return enderecos
 }
 
 /**
@@ -136,46 +99,6 @@ fun encurtarTtl(dns: ByteArray, maxSegundos: Int): ByteArray {
     }
     return r
 }
-
-/**
- * [endereco] é da internet de verdade: nem da rede de casa (10/8, 172.16/12, 192.168/16), nem da operadora (100.64/10),
- * nem local, nem de grupo. Só esses o escudo corta no bloqueio: um endereço da casa no meio cortaria o roteador.
- */
-fun enderecoPublico(endereco: ByteArray): Boolean {
-    val b = endereco.map { it.toInt() and 0xFF }
-    return when (endereco.size) {
-        4 -> !(b[0] == 0 || b[0] == 10 || b[0] == 127 || b[0] >= 224 || (b[0] == 169 && b[1] == 254) ||
-            (b[0] == 172 && b[1] in 16..31) || (b[0] == 192 && b[1] == 168) || (b[0] == 100 && b[1] in 64..127))
-        16 -> !(b.all { it == 0 } || (b.take(15).all { it == 0 } && b[15] == 1) || b[0] == 0xFF || (b[0] and 0xFE) == 0xFC ||
-            (b[0] == 0xFE && (b[1] and 0xC0) == 0x80) || (b.take(10).all { it == 0 } && b[10] == 0xFF && b[11] == 0xFF))
-        else -> false
-    }
-}
-
-/** Um pacote TCP ou UDP ([protocolo] 6 ou 17), IPv4 ou IPv6: de quem e pra quem. Pro registro do que o bloqueio cortou. */
-class Fluxo(val protocolo: Int, val origem: ByteArray, val portaOrigem: Int, val destino: ByteArray, val portaDestino: Int)
-
-/** O [Fluxo] de [pacote] (os [tamanho] primeiros bytes), se é TCP ou UDP sem cabeçalhos extras; null pro resto. */
-fun lerFluxo(pacote: ByteArray, tamanho: Int): Fluxo? {
-    if (tamanho < 1) return null
-    return when ((pacote[0].toInt() ushr 4) and 0xF) {
-        4 -> {
-            val cabecalho = (pacote[0].toInt() and 0xF) * 4
-            val protocolo = pacote[9].toInt() and 0xFF
-            if (tamanho < cabecalho + 4 || (protocolo != 6 && protocolo != 17)) return null
-            Fluxo(protocolo, pacote.copyOfRange(12, 16), u16(pacote, cabecalho), pacote.copyOfRange(16, 20), u16(pacote, cabecalho + 2))
-        }
-        6 -> {
-            val protocolo = pacote[6].toInt() and 0xFF
-            if (tamanho < 44 || (protocolo != 6 && protocolo != 17)) return null
-            Fluxo(protocolo, pacote.copyOfRange(8, 24), u16(pacote, 40), pacote.copyOfRange(24, 40), u16(pacote, 42))
-        }
-        else -> null
-    }
-}
-
-/** "157.240.12.63", "2a03:2880:f12f:83:face:b00c:0:25de". */
-fun textoDoEndereco(endereco: ByteArray): String = InetAddress.getByAddress(endereco).hostAddress ?: ""
 
 /** A soma de verificação da internet (RFC 1071) de [tamanho] bytes de [b] a partir de [inicio], mais [somaInicial]. */
 private fun soma(b: ByteArray, inicio: Int, tamanho: Int, somaInicial: Long = 0): Int {

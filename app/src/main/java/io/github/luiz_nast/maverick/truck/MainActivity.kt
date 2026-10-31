@@ -125,7 +125,7 @@ private fun dnsParticular(ctx: Context): String? {
 private fun Tela(onLigar: () -> Unit, onDesligar: () -> Unit, onNotificacoes: () -> Unit) {
     val ctx = LocalContext.current
     val ligado by Estado.ligado.collectAsStateWithLifecycle()
-    val rodadas by Estado.rodadas.collectAsStateWithLifecycle()
+    val rodada by Estado.rodada.collectAsStateWithLifecycle()
     var agora by remember { mutableLongStateOf(System.currentTimeMillis()) }
     LaunchedEffect(Unit) {
         while (true) {
@@ -157,7 +157,7 @@ private fun Tela(onLigar: () -> Unit, onDesligar: () -> Unit, onNotificacoes: ()
         )
     }
     val particular = remember(voltas) { dnsParticular(ctx) }
-    val bloqueado = rodadas.values.any { it.bloqueada(agora) }
+    val bloqueado = rodada.bloqueada(agora)
 
     Column(
         Modifier.fillMaxSize().background(Fundo).safeDrawingPadding().verticalScroll(rememberScrollState()).padding(20.dp),
@@ -168,10 +168,8 @@ private fun Tela(onLigar: () -> Unit, onDesligar: () -> Unit, onNotificacoes: ()
             color = Apagado, fontSize = 16.sp,
         )
         Spacer(Modifier.height(20.dp))
-        for (site in Site.entries) {
-            CartaoDoSite(site, rodadas.getValue(site), agora, ligado)
-            Spacer(Modifier.height(12.dp))
-        }
+        CartaoDoCadeado(rodada, agora, ligado)
+        Spacer(Modifier.height(12.dp))
         Spacer(Modifier.height(8.dp))
         if (!ligado) {
             val pronto = permissoes.first().ok
@@ -206,7 +204,7 @@ private fun Tela(onLigar: () -> Unit, onDesligar: () -> Unit, onNotificacoes: ()
 }
 
 @Composable
-private fun CartaoDoSite(site: Site, rodada: Rodada, agora: Long, ligado: Boolean) {
+private fun CartaoDoCadeado(rodada: Rodada, agora: Long, ligado: Boolean) {
     val bloqueada = rodada.bloqueada(agora)
     val (cor, fracao, centro, linha) = when {
         !ligado -> Quatro(Apagado, 0f, "off", "Shield off")
@@ -229,8 +227,9 @@ private fun CartaoDoSite(site: Site, rodada: Rodada, agora: Long, ligado: Boolea
         }
         Spacer(Modifier.width(16.dp))
         Column {
-            Text(site.nome, color = Texto, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+            Text("Instagram & YouTube", color = Texto, fontSize = 22.sp, fontWeight = FontWeight.Bold)
             Text(linha, color = cor, fontSize = 15.sp)
+            Text("One leash for both", color = Apagado, fontSize = 13.sp)
         }
     }
 }

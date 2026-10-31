@@ -1,17 +1,16 @@
-// O escudo: um serviço de VPN que fica no próprio celular (nada sai por um servidor de fora). Ele faz duas coisas:
+// O escudo do Maverick Truck. Ele não corta a internet de nada (o dono, 10-31: "esquece o código que bloqueia a
+// internet do app, tenta sempre fazer o app ou site cair fora"). Ele faz duas coisas:
 //
 // 1. Conta o uso. A cada segundo de tela ligada, vê qual app está na frente (Uso) e, se é o Instagram ou o YouTube (o
-//    app, ou um navegador com o site aberto), soma na rodada do site. Passou de 7 min, o site fica bloqueado 15 min
-//    pelo relógio (Regras: Rodada).
-// 2. Bloqueia. O túnel só recebe as perguntas de DNS de todos os apps (o "endereço de quem é instagram.com?"): as dos
-//    sites bloqueados levam "não existe" na hora, e as outras vão pro DNS de verdade da rede, pelo próprio app. No
-//    bloqueio, o túnel também puxa os endereços dos servidores do site que o DNS já respondeu antes (os de vídeo do
-//    YouTube, os do Instagram): o que chega neles cai aqui e é descartado, então até a conexão que já estava aberta
-//    para de funcionar.
+//    app, ou um navegador no site), soma na rodada do site. Passou de 7 min, o site fica bloqueado 15 min pelo relógio.
+// 2. Ejeta. Enquanto um site está bloqueado e o app dele (ou um navegador no site) está na frente, a tela de bloqueio
+//    aparece por cima (Cobertura), com um botão que vai pra tela inicial. Só sobre o Instagram e o YouTube: nunca sobre
+//    banco, o despertador ou outro app.
 //
-// Ficam de fora do túnel o próprio app (é por ele que o DNS de verdade sai), o Nubank, outros bancos e o Nightmare
-// Alarm: nada deles passa por aqui. Sem serviço de acessibilidade, pelo mesmo motivo: o Nubank trava o celular quando
-// um app de fora da Play Store tem um ligado.
+// Pra saber que um navegador está num site bloqueado, sem serviço de acessibilidade (que o Nubank trava), o escudo é uma
+// VPN local que só observa o DNS: todas as perguntas de endereço passam por ele, que anota quais apps perguntaram pelo
+// Instagram ou pelo YouTube e manda a resposta de verdade de volta, sem mexer em nada. Nada sai por um servidor de fora.
+// Fora do túnel ficam o próprio app, os bancos e o despertador.
 package io.github.luiz_nast.maverick.truck
 
 import android.app.PendingIntent
@@ -47,7 +46,6 @@ import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
-import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.concurrent.thread
 
 /** Tag dos logs do app: `adb logcat -s Maverick`. */
@@ -61,7 +59,6 @@ class Escudo : VpnService() {
 
         /** O endereço do celular dentro do túnel e o "servidor de DNS" que só existe nele. */
         private const val ENDERECO = "10.215.173.1"
-        private const val ENDERECO_V6 = "fdc3:5ee2:a17e::1"
         private const val DNS = "10.215.173.2"
 
         /** Apps que o escudo nunca toca: os bancos (o Nubank estranha qualquer coisa no meio) e o despertador. */
@@ -84,9 +81,6 @@ class Escudo : VpnService() {
 
         /** Se a leitura do túnel cair, ele é remontado; mais que isto de vezes num minuto, o escudo desiste e avisa. */
         private const val REMONTAGENS_MAX = 5
-
-        /** Linhas de registro por túnel (o que os apps regrados perguntam e o que foi cortado): o suficiente pra entender, sem encher. */
-        private const val REGISTROS_MAX = 80
 
         /** O escudo está rodando neste processo (o [Estado.ligado] gravado pode dizer "ligado" depois de o app ser morto). */
         @Volatile
@@ -114,18 +108,12 @@ class Escudo : VpnService() {
     @Volatile
     private var saida: FileOutputStream? = null
     private val travaDaSaida = Any()
-
-    /** Os sites bloqueados quando o túnel de agora foi montado (lido também pela leitura do túnel). */
-    @Volatile
-    private var noTunel: Set<Site>? = null
-    private val revisar = AtomicBoolean(false) // a leitura já pediu um tique pra ver se um bloqueio acabou
     private val remontagens = ArrayDeque<Long>()
 
-    /** O que já foi pro registro neste túnel (cada nome perguntado e cada destino cortado, uma vez só, até [REGISTROS_MAX]). */
-    private val registrados = ConcurrentHashMap.newKeySet<String>()
     private var ligado = false
     private var uso: Uso? = null
     private val cobertura by lazy { Cobertura(this) }
+    private val medidor by lazy { Medidor(this) }
     private var navegadores = emptySet<String>()
     private var uidsDosApps = emptySet<Int>() // os apps do Instagram e do YouTube: o DNS deles em segundo plano não é uso
     private val ultimaConsulta = ConcurrentHashMap<Site, Consulta>()
@@ -149,24 +137,15 @@ class Escudo : VpnService() {
         }
     }
 
-    /** O fim de um bloqueio com a tela apagada: o túnel solta os endereços cortados na hora, não só quando a tela acender. */
-    private val fimDoBloqueio = Runnable { avancar() }
-
-    /**
-     * Tela apagada: o uso para de contar (o bloqueio segue pelo relógio, e o fim dele fica marcado). Acesa: volta a
-     * contar, com a lista de navegadores relida (um navegador instalado depois também vale).
-     */
+    /** Tela apagada: o uso para de contar (e o bloqueio segue pelo relógio); a tela por cima some. Acesa: volta a contar. */
     private val tela = object : BroadcastReceiver() {
         override fun onReceive(c: Context, i: Intent) {
             handler.removeCallbacks(tique)
-            handler.removeCallbacks(fimDoBloqueio)
             if (i.action == Intent.ACTION_SCREEN_OFF) {
                 avancar()
                 cobertura.esconder()
+                medidor.esconder()
                 ultimoTique = 0L
-                val agora = System.currentTimeMillis()
-                Estado.rodadas.value.values.filter { it.bloqueada(agora) }.minOfOrNull { it.bloqueadoAte }
-                    ?.let { handler.postDelayed(fimDoBloqueio, it - agora + 500) }
             } else {
                 ultimoTique = 0L
                 navegadores = Uso.navegadores(this@Escudo)
@@ -195,7 +174,7 @@ class Escudo : VpnService() {
         Estado.carregar(this)
         Notificacoes.criarCanais(this)
         if (intent?.action == ACAO_DESLIGAR) {
-            if (Estado.algumBloqueado(System.currentTimeMillis())) {
+            if (Estado.bloqueado(System.currentTimeMillis())) {
                 Log.i(TAG, "Escudo: no meio de um bloqueio não desliga")
                 return START_STICKY // o escudo segue; morto pelo Android, ele volta
             }
@@ -248,7 +227,7 @@ class Escudo : VpnService() {
             )
             runCatching { getSystemService(ConnectivityManager::class.java).registerDefaultNetworkCallback(rede) }
             ultimoTique = 0L
-            noTunel = null
+            montarTunel()
             Log.i(TAG, "Escudo: ligado (${navegadores.size} navegadores)")
         }
         handler.removeCallbacks(tique)
@@ -258,7 +237,7 @@ class Escudo : VpnService() {
 
     private fun telaLigada() = getSystemService(PowerManager::class.java).isInteractive
 
-    /** Um tique: soma o uso de quem está na frente, começa ou termina bloqueios, monta o túnel e atualiza a notificação. */
+    /** Um tique: soma o uso de quem está na frente, começa ou termina bloqueios, ejeta o app bloqueado da frente e atualiza a notificação. */
     private fun avancar() {
         if (!ligado) return
         val agora = System.currentTimeMillis()
@@ -268,38 +247,33 @@ class Escudo : VpnService() {
         val naFrente = if (telaLigada()) uso?.naFrente() else null
         val uidNaFrente = naFrente?.let { p -> uids.getOrPut(p) { runCatching { packageManager.getPackageUid(p, 0) }.getOrNull() } }
         val emUso = siteEmUso(naFrente, uidNaFrente, navegadores, ultimaConsulta, agora)
-        val antes = Estado.rodadas.value
-        val depois = Site.entries.associateWith { antes.getValue(it).avancar(agora, if (it == emUso) passou else 0L) }
-        val comecou = Site.entries.filter { !antes.getValue(it).bloqueada(agora) && depois.getValue(it).bloqueada(agora) }
-        val acabou = Site.entries.filter { antes.getValue(it).bloqueadoAte != 0L && depois.getValue(it).bloqueadoAte == 0L }
-        val virou = comecou.isNotEmpty() || acabou.isNotEmpty()
+        // Uma rodada só: o tempo do Instagram e do YouTube soma junto, e o bloqueio vale pros dois ([Estado.rodada])
+        val antes = Estado.rodada.value
+        val depois = antes.avancar(agora, if (emUso != null) passou else 0L)
+        val comecou = !antes.bloqueada(agora) && depois.bloqueada(agora)
+        val virou = comecou || (antes.bloqueadoAte != 0L && depois.bloqueadoAte == 0L)
         val gravar = virou || agora - gravadoEm >= GRAVAR_MS
         Estado.atualizar(depois, gravar)
         if (gravar) gravadoEm = agora
-        for (site in comecou) {
-            Log.i(TAG, "Escudo: ${site.nome} usou ${LIVRE_MS / 60_000} min, bloqueado por ${BLOQUEIO_MS / 60_000} min")
-            Notificacoes.avisarBloqueio(this, site, depois.getValue(site).bloqueadoAte)
-            if (naFrente != null && naFrente in site.pacotes) avisadoNaFrente = naFrente
+        if (comecou) Log.i(TAG, "Escudo: 7 min usados (Instagram + YouTube), os dois bloqueados por ${BLOQUEIO_MS / 60_000} min")
+        // Bloqueado e um dos dois na frente (o app, ou um navegador no site): a tela de bloqueio aparece por cima dele
+        val ejetar = emUso?.takeIf { depois.bloqueada(agora) }
+        if (ejetar != null) {
+            medidor.esconder()
+            cobertura.mostrar(ejetar, depois.bloqueadoAte)
+            if (naFrente != avisadoNaFrente) Notificacoes.avisarBloqueio(this, ejetar, depois.bloqueadoAte)
+            avisadoNaFrente = naFrente
+        } else {
+            cobertura.esconder()
+            avisadoNaFrente = null
+            // Livre, com o Instagram ou o YouTube na frente: a plaquinha do tempo (igual à do Maverick do computador)
+            if (emUso != null) medidor.mostrar(emUso, depois.usadoMs, LIVRE_MS) else medidor.esconder()
         }
-        for (site in acabou) Log.i(TAG, "Escudo: ${site.nome} livre de novo")
-        // Aberto no meio do bloqueio: o aviso, uma vez por abertura
-        val bloqueadoNaFrente = Site.entries.firstOrNull { naFrente != null && naFrente in it.pacotes && depois.getValue(it).bloqueada(agora) }
-        if (bloqueadoNaFrente != null && naFrente != avisadoNaFrente) {
-            Notificacoes.avisarBloqueio(this, bloqueadoNaFrente, depois.getValue(bloqueadoNaFrente).bloqueadoAte)
-        }
-        avisadoNaFrente = if (bloqueadoNaFrente != null) naFrente else null
-        // A tela por cima: só sobre o app do site bloqueado que está na frente (nunca sobre banco: naFrente é o pacote dele mesmo)
-        if (bloqueadoNaFrente != null) cobertura.mostrar(bloqueadoNaFrente, depois.getValue(bloqueadoNaFrente).bloqueadoAte) else cobertura.esconder()
-        montarTunel(agora)
         atualizarNotificacao(agora, depois, forcar = virou)
     }
 
-    /** O túnel com os sites bloqueados de agora; só remonta quando eles mudam (o Android troca a rede da VPN por inteiro). */
-    private fun montarTunel(agora: Long) {
-        val bloqueados = Site.entries.filter { Estado.bloqueado(it, agora) }.toSet()
-        if (tunel != null && bloqueados == noTunel) return
-        val cortados = bloqueados.flatMap { Estado.enderecos(it) }
-        val (v6, v4) = cortados.partition { ':' in it }
+    /** O túnel que só observa o DNS: a única rota é o servidor de DNS de mentira dentro dele. Montado uma vez; só volta se a leitura cair. */
+    private fun montarTunel() {
         val b = Builder()
             .setSession("Maverick Truck")
             .setBlocking(true)
@@ -307,13 +281,11 @@ class Escudo : VpnService() {
             .addAddress(ENDERECO, 32)
             .addDnsServer(DNS)
             .addRoute(DNS, 32)
-            // O IPv6 dos apps segue pela rede de verdade, como o IPv4: sem isto, o Android corta todo o IPv6 deles
-            // enquanto o escudo estiver de pé (revisão de 10-31)
+            // O IPv6 (e o resto do IPv4) dos apps segue direto pela rede: o escudo só olha o DNS, não corta nada
+            .allowFamily(OsConstants.AF_INET)
             .allowFamily(OsConstants.AF_INET6)
             .setMetered(false)
             .setConfigureIntent(PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE))
-        if (v6.isNotEmpty()) b.addAddress(ENDERECO_V6, 128)
-        val rotas = v4.count { runCatching { b.addRoute(it, 32) }.isSuccess } + v6.count { runCatching { b.addRoute(it, 128) }.isSuccess }
         b.addDisallowedApplication(packageName)
         for (pacote in FORA) runCatching { b.addDisallowedApplication(pacote) } // não instalado: nada a tirar
         val novo = runCatching { b.establish() }.onFailure { Log.w(TAG, "Escudo: o Android não montou o túnel", it) }.getOrNull()
@@ -330,18 +302,13 @@ class Escudo : VpnService() {
             tunel = novo
             saida = FileOutputStream(novo.fileDescriptor)
         }
-        noTunel = bloqueados
-        revisar.set(false)
-        registrados.clear()
         ler(novo)
         velho?.let { runCatching { it.close() } }
-        Log.i(TAG, "Escudo: túnel ${if (bloqueados.isEmpty()) "sem bloqueio" else "bloqueando ${bloqueados.joinToString { it.nome }}, $rotas endereços cortados"}")
-        if (cortados.isNotEmpty()) Log.i(TAG, "Escudo: cortados ${cortados.joinToString(" ").take(600)}")
     }
 
     /**
-     * A leitura do túnel [fd], numa linha de execução só dele, até ele ser trocado ou fechado. Se ela cair com o túnel
-     * ainda de pé, ninguém mais leria o DNS do celular: o túnel é remontado ([leituraCaiu]).
+     * A leitura do túnel [fd], numa linha de execução só dele, até ele ser trocado ou fechado. Só chegam perguntas de
+     * DNS (a única rota do túnel). Se a leitura cair com o túnel de pé, ninguém mais leria o DNS: o túnel é remontado.
      */
     private fun ler(fd: ParcelFileDescriptor) {
         thread(name = "escudo", isDaemon = true) {
@@ -365,29 +332,11 @@ class Escudo : VpnService() {
                     break
                 }
                 if (n <= 0) continue
-                talvezOBloqueioAcabou()
-                // O que não é pergunta de DNS são os pacotes pros endereços cortados no bloqueio: ficam sem resposta
-                val pergunta = lerPerguntaDns(pacote, n)
-                if (pergunta == null) {
-                    registrarCortado(pacote, n)
-                    continue
-                }
+                val pergunta = lerPerguntaDns(pacote, n) ?: continue
                 responder(pergunta, SystemClock.elapsedRealtime())
             }
             if (tunel === fd) handler.post { leituraCaiu(fd) }
         }
-    }
-
-    /**
-     * Chegou algo no túnel montado com bloqueio, e o relógio diz que nenhum site está mais bloqueado (a tela apagada não
-     * dá tique): um tique só, pra soltar os endereços cortados.
-     */
-    private fun talvezOBloqueioAcabou() {
-        val bloqueados = noTunel ?: return
-        if (bloqueados.isEmpty()) return
-        val agora = System.currentTimeMillis()
-        if (bloqueados.any { Estado.bloqueado(it, agora) }) return
-        if (revisar.compareAndSet(false, true)) handler.post { avancar() }
     }
 
     /** A leitura do túnel [fd] parou com ele de pé: o túnel é montado de novo, no máximo [REMONTAGENS_MAX] vezes por minuto. */
@@ -403,34 +352,24 @@ class Escudo : VpnService() {
         }
         remontagens.addLast(agora)
         Log.w(TAG, "Escudo: a leitura do túnel caiu, montando de novo")
-        noTunel = null
-        montarTunel(System.currentTimeMillis())
+        montarTunel()
     }
 
     /**
-     * Uma pergunta de DNS (lida em [lidaEm], elapsedRealtime): de um site bloqueado, "não existe" na hora; de resto, a
-     * resposta do DNS de verdade, com validade curta se é de um site regrado ([TTL_REGRADO_S]).
+     * Uma pergunta de DNS (lida em [lidaEm], elapsedRealtime): o escudo não bloqueia nada, só anota se é de um site
+     * regrado (pra saber que um navegador está nele) e manda a resposta de verdade de volta, com validade curta se é de
+     * um site regrado ([TTL_REGRADO_S]), pra o navegador perguntar de novo e o escudo saber que ele continua lá.
      */
     private fun responder(p: PerguntaDns, lidaEm: Long) {
         val (nome, _) = nomeDaPergunta(p.dns) ?: return
         val agora = System.currentTimeMillis()
         val site = siteDoDominio(nome)
-        if (site != null) {
-            val uid = anotar(site, p, agora)
-            registrar("dns $nome $uid") { "Escudo: DNS $nome de ${nomeDoUid(uid)}: ${if (Estado.bloqueado(site, agora)) "não existe" else "liberado"}" }
-        }
-        if (site != null && Estado.bloqueado(site, agora)) {
-            respostaNaoExiste(p.dns)?.let { escrever(pacoteUdp(p.destino, p.origem, p.portaDestino, p.portaOrigem, it)) }
-            return
-        }
+        if (site != null) anotar(site, p, agora)
         runCatching {
             consultas.execute {
                 // Esperou demais na fila (a rede trocou e o DNS demorou): o Android já perguntou de novo
                 if (SystemClock.elapsedRealtime() - lidaEm > PERGUNTA_VELHA_MS) return@execute
                 val resposta = perguntarLaFora(p.dns) ?: return@execute
-                if (site != null && guardaEnderecos(nome)) {
-                    Estado.guardarEnderecos(site, enderecosDaResposta(resposta).filter(::enderecoPublico).map(::textoDoEndereco))
-                }
                 val final = if (site != null) encurtarTtl(resposta, TTL_REGRADO_S) else resposta
                 escrever(pacoteUdp(p.destino, p.origem, p.portaDestino, p.portaOrigem, final))
             }
@@ -441,7 +380,7 @@ class Escudo : VpnService() {
      * O site foi pedido ao DNS agora, por quem ([Consulta.uid]): com esse navegador na frente, conta como o site aberto
      * nele ([siteEmUso]). O pedido de outro app (o próprio Instagram em segundo plano, o YouTube Music) não conta.
      */
-    private fun anotar(site: Site, p: PerguntaDns, agora: Long): Int {
+    private fun anotar(site: Site, p: PerguntaDns, agora: Long) {
         val uid = runCatching {
             getSystemService(ConnectivityManager::class.java).getConnectionOwnerUid(
                 OsConstants.IPPROTO_UDP,
@@ -450,34 +389,7 @@ class Escudo : VpnService() {
             )
         }.getOrDefault(Process.INVALID_UID)
         if (uid !in uidsDosApps) ultimaConsulta[site] = Consulta(agora, uid)
-        return uid
     }
-
-    /** Uma linha de registro com a [chave] nova neste túnel, até [REGISTROS_MAX] (o [texto] só é montado se for registrar). */
-    private fun registrar(chave: String, texto: () -> String) {
-        if (registrados.size >= REGISTROS_MAX || !registrados.add(chave)) return
-        Log.i(TAG, texto())
-    }
-
-    /** Um pacote que não é pergunta de DNS chegou no túnel: é pra um endereço cortado; quem mandou e pra onde, uma vez por destino. */
-    private fun registrarCortado(pacote: ByteArray, n: Int) {
-        val f = lerFluxo(pacote, n) ?: return
-        val destino = textoDoEndereco(f.destino)
-        val nome = if (f.protocolo == 6) "TCP" else "UDP"
-        registrar("corte $nome $destino:${f.portaDestino}") {
-            val uid = runCatching {
-                getSystemService(ConnectivityManager::class.java).getConnectionOwnerUid(
-                    f.protocolo,
-                    InetSocketAddress(InetAddress.getByAddress(f.origem), f.portaOrigem),
-                    InetSocketAddress(InetAddress.getByAddress(f.destino), f.portaDestino),
-                )
-            }.getOrDefault(Process.INVALID_UID)
-            "Escudo: cortado $nome $destino:${f.portaDestino} de ${nomeDoUid(uid)}"
-        }
-    }
-
-    private fun nomeDoUid(uid: Int): String =
-        if (uid < 0) "?" else runCatching { packageManager.getNameForUid(uid) }.getOrNull() ?: uid.toString()
 
     /**
      * A pergunta pro DNS de verdade da rede (por fora do túnel); null se nenhum respondeu a tempo. O que respondeu vai
@@ -525,11 +437,12 @@ class Escudo : VpnService() {
     }
 
     /** A notificação fixa com a rodada de cada site; no máximo a cada [NOTIFICAR_MS], ou na hora quando um bloqueio começa ou acaba. */
-    private fun atualizarNotificacao(agora: Long, rodadas: Map<Site, Rodada>, forcar: Boolean) {
+    private fun atualizarNotificacao(agora: Long, rodada: Rodada, forcar: Boolean) {
         if (!forcar && agora - notificadoEm < NOTIFICAR_MS) return
-        val texto = Site.entries.joinToString(" · ") { site ->
-            val r = rodadas.getValue(site)
-            if (r.bloqueada(agora)) "${site.nome} blocked ${mmss(r.restanteMs(agora))}" else "${site.nome} ${mmss(r.usadoMs)} of ${mmss(LIVRE_MS)}"
+        val texto = if (rodada.bloqueada(agora)) {
+            "Instagram & YouTube blocked · ${mmss(rodada.restanteMs(agora))} left"
+        } else {
+            "Instagram & YouTube · ${mmss(rodada.usadoMs)} of ${mmss(LIVRE_MS)} used"
         }
         if (texto == ultimoTexto && !forcar) return
         ultimoTexto = texto
@@ -540,7 +453,6 @@ class Escudo : VpnService() {
     /** Fecha o túnel e o serviço (o estado ligado ou não já foi gravado por quem chamou). */
     private fun parar() {
         handler.removeCallbacks(tique)
-        handler.removeCallbacks(fimDoBloqueio)
         if (ligado) {
             runCatching { unregisterReceiver(tela) }
             runCatching { getSystemService(ConnectivityManager::class.java).unregisterNetworkCallback(rede) }
@@ -548,12 +460,12 @@ class Escudo : VpnService() {
         ligado = false
         rodando = false
         cobertura.esconder()
+        medidor.esconder()
         val t = tunel
         synchronized(travaDaSaida) {
             tunel = null
             saida = null
         }
-        noTunel = null
         t?.let { runCatching { it.close() } }
         ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
         stopSelf()
@@ -572,7 +484,6 @@ class Escudo : VpnService() {
 
     override fun onDestroy() {
         handler.removeCallbacks(tique)
-        handler.removeCallbacks(fimDoBloqueio)
         if (ligado) {
             runCatching { unregisterReceiver(tela) }
             runCatching { getSystemService(ConnectivityManager::class.java).unregisterNetworkCallback(rede) }
@@ -580,6 +491,7 @@ class Escudo : VpnService() {
         ligado = false
         rodando = false
         cobertura.esconder()
+        medidor.esconder()
         tunel?.let { runCatching { it.close() } }
         tunel = null
         consultas.shutdownNow()
