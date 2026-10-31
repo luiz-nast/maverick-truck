@@ -383,9 +383,10 @@ private fun CartaoDoCadeado(rodada: Rodada, agora: Long, ligado: Boolean) {
             Vermelho, rodada.restanteMs(agora).toFloat() / BLOQUEIO_MS, mmss(rodada.restanteMs(agora)),
             "Blocked · free again in ${mmss(rodada.restanteMs(agora))}",
         )
+        // No meio do anel, o tempo USADO, igual à plaquinha por cima do Instagram (o dono, 10-31: 2:30 lá e 4:28 aqui confundia)
         else -> Quatro(
-            if (rodada.usadoMs == 0L) Verde else Laranja, rodada.usadoMs.toFloat() / LIVRE_MS, mmss(rodada.restanteMs(agora)),
-            "Free · ${mmss(rodada.usadoMs)} of ${mmss(LIVRE_MS)} used",
+            if (rodada.usadoMs == 0L) Verde else Laranja, rodada.usadoMs.toFloat() / LIVRE_MS, mmss(rodada.usadoMs),
+            "Free · ${mmss(rodada.usadoMs)} of ${mmss(LIVRE_MS)} used · ${mmss(rodada.restanteMs(agora))} left",
         )
     }
     Row(
