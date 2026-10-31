@@ -10,6 +10,8 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <!-- A tela de bloqueio por cima do Instagram e do YouTube (Cobertura.kt). Não é acessibilidade: o Nubank não implica -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <!-- Qual app está na frente: "Acesso ao uso", dado pelo dono nas Configurações (não é acessibilidade) -->
     <uses-permission
         android:name="android.permission.PACKAGE_USAGE_STATS"
@@ -70,6 +72,12 @@
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="Local DNS filter that limits Instagram and YouTube to 7 minutes of use, then 15 minutes blocked" />
         </service>
+
+        <!-- Teste do bloqueio sem esperar os 7 min, só pelo cabo (o adb tem a permissão DUMP; app nenhum tem). Veja TesteDoBloqueio.kt -->
+        <receiver
+            android:name=".TesteDoBloqueio"
+            android:exported="true"
+            android:permission="android.permission.DUMP" />
 
         <receiver
             android:name=".BootReceiver"

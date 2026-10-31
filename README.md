@@ -12,7 +12,7 @@ Maverick Truck is the phone sibling of [Maverick](https://github.com/luiz-nast/m
 | Platform | Android 10+ (tested target: Android 16, Galaxy S24 FE) |
 | Language | Kotlin, Jetpack Compose |
 | Size | ~1.5 MB |
-| Permissions | Usage access, local VPN, notifications, unrestricted battery |
+| Permissions | Usage access, local VPN, cover blocked apps, notifications, unrestricted battery |
 | Network | Nothing goes to any server of ours: there is none |
 | App ID | `io.github.luiz_nast.maverick.truck` |
 | License | MIT |
@@ -38,7 +38,7 @@ stateDiagram-v2
 | Any other app on screen | No |
 | The phone in your pocket during a block | The block keeps running: it is by the clock |
 
-When a round runs out, a notice drops from the top: *"Instagram blocked. Your 7 minutes are up. Free again at 14:32."* Opening the blocked app again shows the notice again. A quiet ongoing notification keeps the score: `Instagram 3:12 of 7:00 · YouTube blocked 11:40`.
+When a round runs out, a full-screen cover drops over the blocked app with "Instagram is blocked — free again at 14:32" and a **Leave** button that goes Home (`Cobertura`, the "Display over other apps" permission — not an accessibility service, so banks do not flag it). The cover appears only over the Instagram and YouTube apps, never over a bank or any other app. A notice also drops from the top. A quiet ongoing notification keeps the score: `Instagram 3:12 of 7:00 · YouTube blocked 11:40`.
 
 You can turn the shield off from the app, but only while nothing is blocked. That is the whole point.
 
@@ -87,7 +87,8 @@ Then open **Maverick Truck** and:
 1. **Usage access** › Allow › find Maverick Truck › on.
 2. **Notifications** › Allow (Android 13+).
 3. **Unrestricted battery** › Allow (Samsung and others put background apps to sleep).
-4. **TURN ON** › Android asks once to let it set up a VPN › OK. A key icon shows in the status bar while the shield is up.
+4. **Cover blocked apps** › Allow (so a block screen can appear over Instagram and YouTube).
+5. **TURN ON** › Android asks once to let it set up a VPN › OK. A key icon shows in the status bar while the shield is up.
 
 It comes back by itself after a reboot or an update.
 
@@ -100,11 +101,13 @@ Most app blockers watch the screen through an accessibility service and press Ho
 | Need | What it uses | Not this |
 |---|---|---|
 | Which app is on screen | Usage access (`UsageStatsManager`) | Accessibility service |
-| Blocking | Local VPN, DNS only | Overlay over other apps, accessibility |
+| Blocking the network | Local VPN, DNS only | Accessibility |
+| Taking you out of the app | A cover over that app only (`SYSTEM_ALERT_WINDOW`) | Accessibility (banks flag it) |
 | Keeping time | A foreground service, 1 tick per second with the screen on | Polling with the screen off |
 
 ## Known limits
 
+- **The cover needs its permission.** Without "Display over other apps", the network is still cut, but no screen appears over the app, so already-loaded content (a feed, a video) keeps showing until it needs the network again. Grant the permission for the real block.
 - **Turning it off is possible from Android**: Settings › VPN, or the VPN tile, or uninstalling. Maverick Truck is a seatbelt, not a jail. It notifies you when the shield goes down.
 - **Another VPN replaces it.** Android runs one VPN at a time.
 - **Private DNS set to a provider** bypasses the shield (see above).
@@ -126,6 +129,7 @@ Most app blockers watch the screen through an accessibility service and press Ho
 | `Estado.kt` | What is saved on the phone: on/off, each site's round, the learned addresses (at most 200 per site); the screen reads it as `StateFlow` |
 | `Notificacoes.kt` | The ongoing status notification and the "blocked" heads-up |
 | `MainActivity.kt` | The screen: one ring per site, TURN ON / Turn off, permissions, the Private DNS warning |
+| `Cobertura.kt` | The full-screen cover shown over a blocked app while it is in front (`SYSTEM_ALERT_WINDOW`); never over a bank |
 | `BootReceiver.kt` | Brings the shield back after a reboot or an app update |
 
 Code and comments are in Portuguese, like the sibling projects; everything on screen is in English. Logs: `adb logcat -s Maverick`.

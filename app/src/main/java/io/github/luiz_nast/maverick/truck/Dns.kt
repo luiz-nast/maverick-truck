@@ -152,6 +152,28 @@ fun enderecoPublico(endereco: ByteArray): Boolean {
     }
 }
 
+/** Um pacote TCP ou UDP ([protocolo] 6 ou 17), IPv4 ou IPv6: de quem e pra quem. Pro registro do que o bloqueio cortou. */
+class Fluxo(val protocolo: Int, val origem: ByteArray, val portaOrigem: Int, val destino: ByteArray, val portaDestino: Int)
+
+/** O [Fluxo] de [pacote] (os [tamanho] primeiros bytes), se é TCP ou UDP sem cabeçalhos extras; null pro resto. */
+fun lerFluxo(pacote: ByteArray, tamanho: Int): Fluxo? {
+    if (tamanho < 1) return null
+    return when ((pacote[0].toInt() ushr 4) and 0xF) {
+        4 -> {
+            val cabecalho = (pacote[0].toInt() and 0xF) * 4
+            val protocolo = pacote[9].toInt() and 0xFF
+            if (tamanho < cabecalho + 4 || (protocolo != 6 && protocolo != 17)) return null
+            Fluxo(protocolo, pacote.copyOfRange(12, 16), u16(pacote, cabecalho), pacote.copyOfRange(16, 20), u16(pacote, cabecalho + 2))
+        }
+        6 -> {
+            val protocolo = pacote[6].toInt() and 0xFF
+            if (tamanho < 44 || (protocolo != 6 && protocolo != 17)) return null
+            Fluxo(protocolo, pacote.copyOfRange(8, 24), u16(pacote, 40), pacote.copyOfRange(24, 40), u16(pacote, 42))
+        }
+        else -> null
+    }
+}
+
 /** "157.240.12.63", "2a03:2880:f12f:83:face:b00c:0:25de". */
 fun textoDoEndereco(endereco: ByteArray): String = InetAddress.getByAddress(endereco).hostAddress ?: ""
 

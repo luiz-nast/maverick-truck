@@ -151,6 +151,9 @@ private fun Tela(onLigar: () -> Unit, onDesligar: () -> Unit, onNotificacoes: ()
                 ctx.startActivity(Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, "package:${ctx.packageName}".toUri()))
             },
             Permissao("Local VPN", "Asked when you turn it on. Nothing leaves the phone.", VpnService.prepare(ctx) == null, onLigar),
+            Permissao("Cover blocked apps", "To put a block screen over Instagram and YouTube.", Settings.canDrawOverlays(ctx)) {
+                ctx.startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, "package:${ctx.packageName}".toUri()))
+            },
         )
     }
     val particular = remember(voltas) { dnsParticular(ctx) }

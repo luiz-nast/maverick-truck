@@ -85,6 +85,9 @@ class Escudo : VpnService() {
         /** Se a leitura do túnel cair, ele é remontado; mais que isto de vezes num minuto, o escudo desiste e avisa. */
         private const val REMONTAGENS_MAX = 5
 
+        /** Linhas de registro por túnel (o que os apps regrados perguntam e o que foi cortado): o suficiente pra entender, sem encher. */
+        private const val REGISTROS_MAX = 80
+
         /** O escudo está rodando neste processo (o [Estado.ligado] gravado pode dizer "ligado" depois de o app ser morto). */
         @Volatile
         var rodando = false
@@ -117,8 +120,12 @@ class Escudo : VpnService() {
     private var noTunel: Set<Site>? = null
     private val revisar = AtomicBoolean(false) // a leitura já pediu um tique pra ver se um bloqueio acabou
     private val remontagens = ArrayDeque<Long>()
+
+    /** O que já foi pro registro neste túnel (cada nome perguntado e cada destino cortado, uma vez só, até [REGISTROS_MAX]). */
+    private val registrados = ConcurrentHashMap.newKeySet<String>()
     private var ligado = false
     private var uso: Uso? = null
+    private val cobertura by lazy { Cobertura(this) }
     private var navegadores = emptySet<String>()
     private var uidsDosApps = emptySet<Int>() // os apps do Instagram e do YouTube: o DNS deles em segundo plano não é uso
     private val ultimaConsulta = ConcurrentHashMap<Site, Consulta>()
@@ -155,6 +162,7 @@ class Escudo : VpnService() {
             handler.removeCallbacks(fimDoBloqueio)
             if (i.action == Intent.ACTION_SCREEN_OFF) {
                 avancar()
+                cobertura.esconder()
                 ultimoTique = 0L
                 val agora = System.currentTimeMillis()
                 Estado.rodadas.value.values.filter { it.bloqueada(agora) }.minOfOrNull { it.bloqueadoAte }
@@ -280,6 +288,8 @@ class Escudo : VpnService() {
             Notificacoes.avisarBloqueio(this, bloqueadoNaFrente, depois.getValue(bloqueadoNaFrente).bloqueadoAte)
         }
         avisadoNaFrente = if (bloqueadoNaFrente != null) naFrente else null
+        // A tela por cima: só sobre o app do site bloqueado que está na frente (nunca sobre banco: naFrente é o pacote dele mesmo)
+        if (bloqueadoNaFrente != null) cobertura.mostrar(bloqueadoNaFrente, depois.getValue(bloqueadoNaFrente).bloqueadoAte) else cobertura.esconder()
         montarTunel(agora)
         atualizarNotificacao(agora, depois, forcar = virou)
     }
@@ -322,9 +332,11 @@ class Escudo : VpnService() {
         }
         noTunel = bloqueados
         revisar.set(false)
+        registrados.clear()
         ler(novo)
         velho?.let { runCatching { it.close() } }
         Log.i(TAG, "Escudo: túnel ${if (bloqueados.isEmpty()) "sem bloqueio" else "bloqueando ${bloqueados.joinToString { it.nome }}, $rotas endereços cortados"}")
+        if (cortados.isNotEmpty()) Log.i(TAG, "Escudo: cortados ${cortados.joinToString(" ").take(600)}")
     }
 
     /**
@@ -355,7 +367,11 @@ class Escudo : VpnService() {
                 if (n <= 0) continue
                 talvezOBloqueioAcabou()
                 // O que não é pergunta de DNS são os pacotes pros endereços cortados no bloqueio: ficam sem resposta
-                val pergunta = lerPerguntaDns(pacote, n) ?: continue
+                val pergunta = lerPerguntaDns(pacote, n)
+                if (pergunta == null) {
+                    registrarCortado(pacote, n)
+                    continue
+                }
                 responder(pergunta, SystemClock.elapsedRealtime())
             }
             if (tunel === fd) handler.post { leituraCaiu(fd) }
@@ -399,7 +415,10 @@ class Escudo : VpnService() {
         val (nome, _) = nomeDaPergunta(p.dns) ?: return
         val agora = System.currentTimeMillis()
         val site = siteDoDominio(nome)
-        if (site != null) anotar(site, p, agora)
+        if (site != null) {
+            val uid = anotar(site, p, agora)
+            registrar("dns $nome $uid") { "Escudo: DNS $nome de ${nomeDoUid(uid)}: ${if (Estado.bloqueado(site, agora)) "não existe" else "liberado"}" }
+        }
         if (site != null && Estado.bloqueado(site, agora)) {
             respostaNaoExiste(p.dns)?.let { escrever(pacoteUdp(p.destino, p.origem, p.portaDestino, p.portaOrigem, it)) }
             return
@@ -422,7 +441,7 @@ class Escudo : VpnService() {
      * O site foi pedido ao DNS agora, por quem ([Consulta.uid]): com esse navegador na frente, conta como o site aberto
      * nele ([siteEmUso]). O pedido de outro app (o próprio Instagram em segundo plano, o YouTube Music) não conta.
      */
-    private fun anotar(site: Site, p: PerguntaDns, agora: Long) {
+    private fun anotar(site: Site, p: PerguntaDns, agora: Long): Int {
         val uid = runCatching {
             getSystemService(ConnectivityManager::class.java).getConnectionOwnerUid(
                 OsConstants.IPPROTO_UDP,
@@ -431,7 +450,34 @@ class Escudo : VpnService() {
             )
         }.getOrDefault(Process.INVALID_UID)
         if (uid !in uidsDosApps) ultimaConsulta[site] = Consulta(agora, uid)
+        return uid
     }
+
+    /** Uma linha de registro com a [chave] nova neste túnel, até [REGISTROS_MAX] (o [texto] só é montado se for registrar). */
+    private fun registrar(chave: String, texto: () -> String) {
+        if (registrados.size >= REGISTROS_MAX || !registrados.add(chave)) return
+        Log.i(TAG, texto())
+    }
+
+    /** Um pacote que não é pergunta de DNS chegou no túnel: é pra um endereço cortado; quem mandou e pra onde, uma vez por destino. */
+    private fun registrarCortado(pacote: ByteArray, n: Int) {
+        val f = lerFluxo(pacote, n) ?: return
+        val destino = textoDoEndereco(f.destino)
+        val nome = if (f.protocolo == 6) "TCP" else "UDP"
+        registrar("corte $nome $destino:${f.portaDestino}") {
+            val uid = runCatching {
+                getSystemService(ConnectivityManager::class.java).getConnectionOwnerUid(
+                    f.protocolo,
+                    InetSocketAddress(InetAddress.getByAddress(f.origem), f.portaOrigem),
+                    InetSocketAddress(InetAddress.getByAddress(f.destino), f.portaDestino),
+                )
+            }.getOrDefault(Process.INVALID_UID)
+            "Escudo: cortado $nome $destino:${f.portaDestino} de ${nomeDoUid(uid)}"
+        }
+    }
+
+    private fun nomeDoUid(uid: Int): String =
+        if (uid < 0) "?" else runCatching { packageManager.getNameForUid(uid) }.getOrNull() ?: uid.toString()
 
     /**
      * A pergunta pro DNS de verdade da rede (por fora do túnel); null se nenhum respondeu a tempo. O que respondeu vai
@@ -501,6 +547,7 @@ class Escudo : VpnService() {
         }
         ligado = false
         rodando = false
+        cobertura.esconder()
         val t = tunel
         synchronized(travaDaSaida) {
             tunel = null
@@ -532,6 +579,7 @@ class Escudo : VpnService() {
         }
         ligado = false
         rodando = false
+        cobertura.esconder()
         tunel?.let { runCatching { it.close() } }
         tunel = null
         consultas.shutdownNow()
