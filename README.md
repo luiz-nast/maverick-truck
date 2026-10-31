@@ -1,10 +1,10 @@
-# Maverick Pickup
+# Maverick Truck
 
 **Instagram and YouTube on Android, on a short leash: 7 minutes of use, then 15 minutes blocked.**
 
 The app and the site, in any browser. No account, no server, no accessibility service: a tiny VPN that never leaves the phone answers "this does not exist" for Instagram and YouTube while they are blocked.
 
-Maverick Pickup is the phone sibling of [Maverick](https://github.com/luiz-nast/maverick), the Linux desktop app that limits YouTube and runs Instagram on the same kind of cycle. Maverick is the car; this is the pickup.
+Maverick Truck is the phone sibling of [Maverick](https://github.com/luiz-nast/maverick), the Linux desktop app that limits YouTube and runs Instagram on the same kind of cycle. Maverick is the car; this is the truck.
 
 | | |
 |---|---|
@@ -14,7 +14,7 @@ Maverick Pickup is the phone sibling of [Maverick](https://github.com/luiz-nast/
 | Size | ~1.5 MB |
 | Permissions | Usage access, local VPN, notifications, unrestricted battery |
 | Network | Nothing goes to any server of ours: there is none |
-| App ID | `io.github.luiz_nast.maverick.pickup` |
+| App ID | `io.github.luiz_nast.maverick.truck` |
 | License | MIT |
 
 ## The cycle
@@ -55,12 +55,13 @@ flowchart LR
 
 1. **The shield is a VPN that only carries DNS.** The VPN's only route is a fake DNS server, `10.215.173.2`, that exists only inside the tunnel. Every app asks it for names; the shield passes the question to your network's real DNS, from outside the tunnel, and hands the answer back. Your traffic itself never goes through the shield.
 2. **Blocked means "does not exist".** While a site is blocked, its names (`instagram.com`, `cdninstagram.com`, `youtube.com`, `googlevideo.com`, `ytimg.com`, `youtubei.googleapis.com`, …) get an instant NXDOMAIN. Apps and browsers give up at once instead of hanging.
-3. **Open connections are cut too.** While a site is free, the shield remembers the addresses the DNS gave for servers that serve **only** that site: Instagram's own servers and CDN, and YouTube's video servers (`*.googlevideo.com`). When the block starts, the tunnel is rebuilt with those addresses routed into it, and packets to them are dropped, so even a video that was already playing stops. Google's shared front-end addresses (the ones behind `youtube.com` and `ytimg.com`, which also serve Search and Gmail) are never routed: those are blocked by DNS only.
-4. **Usage comes from Android's usage history** (the "Usage access" permission), read once per second while the screen is on.
+3. **Open connections are cut too.** While a site is free, the shield remembers the public addresses the DNS gave for Instagram's servers and CDN (`*.instagram.com`, `*.cdninstagram.com`, `instagram.*.fbcdn.net`) and for YouTube's video cache servers (`rrN---sn-….googlevideo.com`, nothing else under googlevideo.com). When the block starts, the tunnel is rebuilt with those addresses routed into it, and packets to them are dropped, so even a video that was already playing stops. Google's general front-end addresses (behind `youtube.com`, `ytimg.com`, `manifest.googlevideo.com`, which also serve Search, Gmail and the Play Store) are never routed: those are blocked by DNS only. Meta may serve Threads from some of the same Instagram addresses, so Threads can stall during an Instagram block.
+4. **Short answers for ruled names.** Answers for Instagram and YouTube names go out with a 10-second lifetime (TTL), so Android and the browser ask again soon: browser use shows up, and a new block bites within seconds instead of waiting for cached answers to expire.
+5. **Usage comes from Android's usage history** (the "Usage access" permission), read once per second while the screen is on.
 
 ### How a site is noticed
 
-A browser is on screen, and the shield saw a question for a ruled name in the last 20 s from someone other than the Instagram or YouTube apps themselves (Android tells a VPN who owns a connection). Scrolling a feed or watching a video asks for new names all the time, so this tracks real use closely. It can be off by a few seconds: a page you left open and stopped touching keeps counting up to 20 s.
+A browser is on screen, and that same browser asked for a ruled name in the last 60 s (Android tells a VPN who owns a connection; when it does not say, the question still counts). A question from another app, such as YouTube Music playing in the background or a link preview in WhatsApp, does not count. This is approximate: a browser keeps reusing an open connection, so a long video may stop counting after a minute without new questions, and a page that only embeds a YouTube player or an Instagram post counts as that site.
 
 ### Who stays outside the shield
 
@@ -81,9 +82,9 @@ or build and install by hand:
 adb install -r app/build/outputs/apk/release/app-release.apk
 ```
 
-Then open **Maverick Pickup** and:
+Then open **Maverick Truck** and:
 
-1. **Usage access** › Allow › find Maverick Pickup › on.
+1. **Usage access** › Allow › find Maverick Truck › on.
 2. **Notifications** › Allow (Android 13+).
 3. **Unrestricted battery** › Allow (Samsung and others put background apps to sleep).
 4. **TURN ON** › Android asks once to let it set up a VPN › OK. A key icon shows in the status bar while the shield is up.
@@ -94,7 +95,7 @@ It comes back by itself after a reboot or an update.
 
 ## Why not an accessibility service?
 
-Most app blockers watch the screen through an accessibility service and press Home on the blocked app. On Android 13+, an app that is not from the Play Store and has an accessibility service on is exactly what the "app access risk" check of banking apps flags, because that is how remote-control scams work: Nubank refuses to open while one is on. The same owner hit that with Nightmare Alarm in October 2026. So Maverick Pickup uses only:
+Most app blockers watch the screen through an accessibility service and press Home on the blocked app. On Android 13+, an app that is not from the Play Store and has an accessibility service on is exactly what the "app access risk" check of banking apps flags, because that is how remote-control scams work: Nubank refuses to open while one is on. The same owner hit that with Nightmare Alarm in October 2026. So Maverick Truck uses only:
 
 | Need | What it uses | Not this |
 |---|---|---|
@@ -104,21 +105,23 @@ Most app blockers watch the screen through an accessibility service and press Ho
 
 ## Known limits
 
-- **Turning it off is possible from Android**: Settings › VPN, or the VPN tile, or uninstalling. Maverick Pickup is a seatbelt, not a jail. It notifies you when the shield goes down.
+- **Turning it off is possible from Android**: Settings › VPN, or the VPN tile, or uninstalling. Maverick Truck is a seatbelt, not a jail. It notifies you when the shield goes down.
 - **Another VPN replaces it.** Android runs one VPN at a time.
 - **Private DNS set to a provider** bypasses the shield (see above).
 - **A browser with its own encrypted DNS** set to a fixed provider (Chrome › Settings › Privacy › Use secure DNS › custom provider) bypasses it for sites. Chrome's default ("automatic", with your current provider) is fine.
 - **Cached content stays.** A post already on screen stays on screen; what is cut is everything new. Only the video servers' and Instagram's own addresses are cut mid-connection; the rest of YouTube relies on DNS, so an app that keeps a connection to a shared Google address open may load a little more before it stops.
-- **IPv6**: addresses learned from IPv6 answers are cut too; a server never seen before by the shield is blocked by DNS only.
+- **IPv6**: addresses learned from IPv6 answers are cut too; a server never seen before by the shield is blocked by DNS only. IPv6 traffic itself always goes straight to the network, like IPv4.
+- **DNS over TCP** to the shield is not answered. Android uses it only for answers too big for UDP, which modern resolvers avoid.
+- **The app and the site count differently**: the app by what is on screen (exact), the site by the browser's DNS questions (approximate, see above).
 - **Wall clock.** Blocks follow the phone's clock. Setting the clock back does not stretch a block beyond 15 min; setting it forward ends it early.
 
 ## Files
 
 | File | What it does |
 |---|---|
-| `Regras.kt` | Pure rules, tested: the two sites (`Site`: packages, ruled domains, domains whose addresses are cut), `siteDoDominio`, `guardaEnderecos`, the round (`Rodada.avancar`, `LIVRE_MS` = 7 min, `BLOQUEIO_MS` = 15 min), `siteEmUso` |
-| `Dns.kt` | Pure packet work, tested: read a DNS question from an IPv4/UDP packet (`lerPerguntaDns`), the question name, an NXDOMAIN answer, the A/AAAA addresses of an answer, build an IPv4/UDP packet with both checksums |
-| `Escudo.kt` | The `VpnService`: the 1 s tick (usage, rounds, notices), the tunnel (rebuilt only when the set of blocked sites changes), the reader thread (`Os.poll`), forwarding to the real DNS through protected sockets, who asked (`getConnectionOwnerUid`) |
+| `Regras.kt` | Pure rules, tested: the two sites (`Site`: packages, ruled domains, domains whose addresses are cut), `siteDoDominio`, `guardaEnderecos`, the round (`Rodada.avancar`, `LIVRE_MS` = 7 min, `BLOQUEIO_MS` = 15 min), `siteEmUso` (with who asked: `Consulta`) |
+| `Dns.kt` | Pure packet work, tested: read a DNS question from an IPv4/UDP packet (`lerPerguntaDns`), the question name, an NXDOMAIN answer, the A/AAAA addresses of an answer, the 10 s TTL (`encurtarTtl`), public addresses only (`enderecoPublico`), build an IPv4/UDP packet with both checksums |
+| `Escudo.kt` | The `VpnService`: the 1 s tick (usage, rounds, notices), the tunnel (rebuilt only when the set of blocked sites changes, or when its reader dies), the reader thread (`Os.poll`), forwarding to the real DNS through protected sockets (re-read on every network change), who asked (`getConnectionOwnerUid`), the block end with the screen off |
 | `Uso.kt` | Which app is on screen (`UsageStatsManager.queryEvents`), whether usage access is granted, which apps are browsers |
 | `Estado.kt` | What is saved on the phone: on/off, each site's round, the learned addresses (at most 200 per site); the screen reads it as `StateFlow` |
 | `Notificacoes.kt` | The ongoing status notification and the "blocked" heads-up |

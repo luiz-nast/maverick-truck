@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Builds Maverick Pickup and installs it on the phone connected through adb (USB cable or wireless debugging).
+# Builds Maverick Truck and installs it on the phone connected through adb (USB cable or wireless debugging).
 # Requirements: JDK 17+ (JAVA_HOME or java on the PATH) and the Android SDK (ANDROID_HOME or ~/Android/Sdk).
 set -euo pipefail
 cd "$(dirname "$0")"
@@ -18,4 +18,4 @@ fi
 
 ./gradlew --console=plain assembleRelease
 "$ADB" install -r app/build/outputs/apk/release/app-release.apk
-echo "Done! Open Maverick Pickup on the phone."
+echo "Done! Open Maverick Truck on the phone."

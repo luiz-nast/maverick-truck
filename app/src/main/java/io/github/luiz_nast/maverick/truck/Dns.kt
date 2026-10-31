@@ -1,6 +1,6 @@
 // O que o escudo faz com os pacotes do túnel, puro (sem Android), com testes em DnsTest: ler a pergunta de DNS de um
 // pacote IPv4/UDP, responder "não existe" (NXDOMAIN), ler os endereços de uma resposta e montar o pacote de volta.
-package io.github.luiz_nast.maverick.pickup
+package io.github.luiz_nast.maverick.truck
 
 import java.net.InetAddress
 
@@ -105,6 +105,51 @@ fun enderecosDaResposta(dns: ByteArray): List<ByteArray> {
         i += tamanho
     }
     return enderecos
+}
+
+/**
+ * [dns] com a validade (TTL) de cada registro limitada a [maxSegundos], pros sites regrados: o celular e o navegador
+ * perguntam de novo logo (o uso no navegador aparece, e o bloqueio pega em segundos). O registro OPT (tipo 41) não tem
+ * TTL de verdade (os campos dele são outros) e fica como está. Uma resposta que não dá pra ler volta igual.
+ */
+fun encurtarTtl(dns: ByteArray, maxSegundos: Int): ByteArray {
+    if (dns.size < 12) return dns
+    val r = dns.copyOf()
+    var i = 12
+    repeat(u16(r, 4)) {
+        i = pularNome(r, i) ?: return dns
+        i += 4
+    }
+    val registros = u16(r, 6) + u16(r, 8) + u16(r, 10)
+    repeat(registros) {
+        i = pularNome(r, i) ?: return r
+        if (i + 10 > r.size) return r
+        if (u16(r, i) != 41) {
+            val ttl = (u16(r, i + 4).toLong() shl 16) or u16(r, i + 6).toLong()
+            if (ttl > maxSegundos) {
+                escrever16(r, i + 4, 0)
+                escrever16(r, i + 6, maxSegundos)
+            }
+        }
+        i += 10 + u16(r, i + 8)
+        if (i > r.size) return r
+    }
+    return r
+}
+
+/**
+ * [endereco] é da internet de verdade: nem da rede de casa (10/8, 172.16/12, 192.168/16), nem da operadora (100.64/10),
+ * nem local, nem de grupo. Só esses o escudo corta no bloqueio: um endereço da casa no meio cortaria o roteador.
+ */
+fun enderecoPublico(endereco: ByteArray): Boolean {
+    val b = endereco.map { it.toInt() and 0xFF }
+    return when (endereco.size) {
+        4 -> !(b[0] == 0 || b[0] == 10 || b[0] == 127 || b[0] >= 224 || (b[0] == 169 && b[1] == 254) ||
+            (b[0] == 172 && b[1] in 16..31) || (b[0] == 192 && b[1] == 168) || (b[0] == 100 && b[1] in 64..127))
+        16 -> !(b.all { it == 0 } || (b.take(15).all { it == 0 } && b[15] == 1) || b[0] == 0xFF || (b[0] and 0xFE) == 0xFC ||
+            (b[0] == 0xFE && (b[1] and 0xC0) == 0x80) || (b.take(10).all { it == 0 } && b[10] == 0xFF && b[11] == 0xFF))
+        else -> false
+    }
 }
 
 /** "157.240.12.63", "2a03:2880:f12f:83:face:b00c:0:25de". */

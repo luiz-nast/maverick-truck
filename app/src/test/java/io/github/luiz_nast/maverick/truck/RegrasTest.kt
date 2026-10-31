@@ -1,4 +1,4 @@
-package io.github.luiz_nast.maverick.pickup
+package io.github.luiz_nast.maverick.truck
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -34,6 +34,10 @@ class RegrasTest {
         assertTrue(guardaEnderecos("scontent-gru2-1.cdninstagram.com"))
         assertTrue(guardaEnderecos("instagram.fbsb1-1.fna.fbcdn.net"))
         assertTrue(guardaEnderecos("rr3---sn-oxu8pnpvo-ua8l.googlevideo.com"))
+        assertTrue(guardaEnderecos("rr1.sn-oxu8pnpvo-ua8l.googlevideo.com"))
+        // Os outros nomes de googlevideo.com moram nos servidores gerais do Google (servem também a Play Store)
+        assertFalse(guardaEnderecos("manifest.googlevideo.com"))
+        assertFalse(guardaEnderecos("redirector.googlevideo.com"))
         // Os do Google em geral servem também a busca e o Gmail: o bloqueio deles é só pelo DNS
         assertFalse(guardaEnderecos("www.youtube.com"))
         assertFalse(guardaEnderecos("i.ytimg.com"))
@@ -81,19 +85,25 @@ class RegrasTest {
     @Test
     fun oQueContaComoUso() {
         val navegadores = setOf("com.android.chrome", "com.sec.android.app.sbrowser")
+        val chrome = 10_123
         val agora = 5_000_000L
-        assertEquals(Site.INSTAGRAM, siteEmUso("com.instagram.android", navegadores, emptyMap(), agora))
-        assertEquals(Site.YOUTUBE, siteEmUso("com.google.android.youtube", navegadores, emptyMap(), agora))
-        // No navegador, só com o site pedido ao DNS há pouco; o mais recente vale
-        assertEquals(Site.YOUTUBE, siteEmUso("com.android.chrome", navegadores, mapOf(Site.YOUTUBE to agora - 5_000), agora))
+        val uso = { naFrente: String?, consultas: Map<Site, Consulta> -> siteEmUso(naFrente, chrome, navegadores, consultas, agora) }
+        assertEquals(Site.INSTAGRAM, siteEmUso("com.instagram.android", 10_200, navegadores, emptyMap(), agora))
+        assertEquals(Site.YOUTUBE, siteEmUso("com.google.android.youtube", 10_201, navegadores, emptyMap(), agora))
+        // No navegador, só com o site pedido ao DNS por ele há pouco; o mais recente vale
+        assertEquals(Site.YOUTUBE, uso("com.android.chrome", mapOf(Site.YOUTUBE to Consulta(agora - 5_000, chrome))))
         assertEquals(
             Site.INSTAGRAM,
-            siteEmUso("com.android.chrome", navegadores, mapOf(Site.YOUTUBE to agora - 9_000, Site.INSTAGRAM to agora - 1_000), agora),
+            uso("com.android.chrome", mapOf(Site.YOUTUBE to Consulta(agora - 9_000, chrome), Site.INSTAGRAM to Consulta(agora - 1_000, chrome))),
         )
-        assertNull(siteEmUso("com.android.chrome", navegadores, mapOf(Site.YOUTUBE to agora - SITE_RECENTE_MS - 1), agora))
-        // Outro app na frente, com o site pedido há pouco (o app do Instagram em segundo plano): não
-        assertNull(siteEmUso("com.whatsapp", navegadores, mapOf(Site.INSTAGRAM to agora), agora))
-        assertNull(siteEmUso(null, navegadores, mapOf(Site.INSTAGRAM to agora), agora))
+        assertNull(uso("com.android.chrome", mapOf(Site.YOUTUBE to Consulta(agora - SITE_RECENTE_MS - 1, chrome))))
+        // Perguntado por outro app (o YouTube Music tocando) com o Chrome na frente: não; sem dono conhecido (o DNS do Android): sim
+        assertNull(uso("com.android.chrome", mapOf(Site.YOUTUBE to Consulta(agora - 1_000, 10_555))))
+        assertEquals(Site.YOUTUBE, uso("com.android.chrome", mapOf(Site.YOUTUBE to Consulta(agora - 1_000, -1))))
+        assertEquals(Site.YOUTUBE, uso("com.android.chrome", mapOf(Site.YOUTUBE to Consulta(agora - 1_000, 1051))))
+        // Outro app na frente, com o site pedido há pouco: não
+        assertNull(uso("com.whatsapp", mapOf(Site.INSTAGRAM to Consulta(agora, chrome))))
+        assertNull(uso(null, mapOf(Site.INSTAGRAM to Consulta(agora, chrome))))
     }
 
     @Test

@@ -4,13 +4,13 @@ plugins {
 }
 
 android {
-    namespace = "io.github.luiz_nast.maverick.pickup"
+    namespace = "io.github.luiz_nast.maverick.truck"
     compileSdk {
         version = release(37)
     }
 
     defaultConfig {
-        applicationId = "io.github.luiz_nast.maverick.pickup"
+        applicationId = "io.github.luiz_nast.maverick.truck"
         // VpnService.Builder.addDisallowedApplication e getConnectionOwnerUid: Android 10+
         minSdk = 29
         targetSdk = 36

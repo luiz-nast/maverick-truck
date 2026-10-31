@@ -1,6 +1,6 @@
 // A tela do app: a rodada de cada site (o anel), o botão de ligar e desligar e as permissões. Quem conta e bloqueia
 // é o escudo ([Escudo]); aqui só se desenha o [Estado].
-package io.github.luiz_nast.maverick.pickup
+package io.github.luiz_nast.maverick.truck
 
 import android.Manifest
 import android.content.Context
@@ -94,6 +94,12 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /** Gravado como ligado, mas o escudo não está de pé (o app foi morto sem o Android religar): volta sozinho. */
+    override fun onResume() {
+        super.onResume()
+        if (Estado.ligado.value && !Escudo.rodando && VpnService.prepare(this) == null) Escudo.ligar(this)
+    }
+
     /** A permissão da VPN (o Android pergunta uma vez) e o escudo ligado. */
     private fun ligar() {
         val pergunta = VpnService.prepare(this)
@@ -153,7 +159,7 @@ private fun Tela(onLigar: () -> Unit, onDesligar: () -> Unit, onNotificacoes: ()
     Column(
         Modifier.fillMaxSize().background(Fundo).safeDrawingPadding().verticalScroll(rememberScrollState()).padding(20.dp),
     ) {
-        Text("Maverick Pickup", color = Texto, fontSize = 32.sp, fontWeight = FontWeight.Black)
+        Text("Maverick Truck", color = Texto, fontSize = 32.sp, fontWeight = FontWeight.Black)
         Text(
             "Instagram and YouTube, app and site: ${LIVRE_MS / 60_000} minutes of use, then ${BLOQUEIO_MS / 60_000} minutes blocked.",
             color = Apagado, fontSize = 16.sp,

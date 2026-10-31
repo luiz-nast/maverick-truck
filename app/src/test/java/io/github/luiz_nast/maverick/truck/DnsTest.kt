@@ -1,9 +1,11 @@
-package io.github.luiz_nast.maverick.pickup
+package io.github.luiz_nast.maverick.truck
 
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Assert.assertFalse
 import org.junit.Test
 
 class DnsTest {
@@ -78,6 +80,43 @@ class DnsTest {
         assertEquals(0, enderecosDaResposta(respostaNaoExiste(q)!!).size)
         // Truncada no meio: o que deu pra ler
         assertEquals(0, enderecosDaResposta(resposta.copyOf(resposta.size - 3)).size)
+    }
+
+    @Test
+    fun encurtaAValidadeDasRespostas() {
+        val q = pergunta("rr3---sn-x.googlevideo.com")
+        val cabecalho = byteArrayOf(0x12, 0x34, 0x81.toByte(), 0x80.toByte(), 0, 1, 0, 1, 0, 0, 0, 1)
+        // Um A com 300 s e um OPT (tipo 41, cujo "TTL" são outras coisas e fica igual)
+        val a = byteArrayOf(0xC0.toByte(), 12, 0, 1, 0, 1, 0, 0, 1, 44, 0, 4, 142.toByte(), 250.toByte(), 1, 1)
+        val opt = byteArrayOf(0, 0, 41, 0x10, 0, 0, 0, 0x80.toByte(), 0, 0, 0)
+        val resposta = cabecalho + q.copyOfRange(12, q.size) + a + opt
+        val curta = encurtarTtl(resposta, 10)
+        val ttlDoA = 12 + (q.size - 12) + 6
+        assertEquals(listOf(0, 0, 0, 10), (ttlDoA until ttlDoA + 4).map { curta[it].toInt() and 0xFF })
+        val optInicio = resposta.size - opt.size
+        assertArrayEquals(opt, curta.copyOfRange(optInicio, curta.size))
+        // O resto, igual; e o endereço continua lá
+        assertEquals("142.250.1.1", textoDoEndereco(enderecosDaResposta(curta)[0]))
+        // Validade menor que o máximo fica como está
+        assertArrayEquals(curta, encurtarTtl(curta, 10))
+    }
+
+    @Test
+    fun soEnderecosDaInternetDeVerdade() {
+        fun v4(vararg b: Int) = b.map { it.toByte() }.toByteArray()
+        assertTrue(enderecoPublico(v4(157, 240, 12, 63)))
+        assertTrue(enderecoPublico(v4(142, 250, 79, 46)))
+        assertFalse(enderecoPublico(v4(192, 168, 0, 1)))
+        assertFalse(enderecoPublico(v4(10, 0, 0, 1)))
+        assertFalse(enderecoPublico(v4(172, 20, 1, 1)))
+        assertFalse(enderecoPublico(v4(100, 64, 0, 1)))
+        assertFalse(enderecoPublico(v4(127, 0, 0, 1)))
+        assertFalse(enderecoPublico(v4(0, 0, 0, 0)))
+        assertFalse(enderecoPublico(v4(224, 0, 0, 1)))
+        assertTrue(enderecoPublico(java.net.InetAddress.getByName("2a03:2880:f12f:83:face:b00c:0:25de").address))
+        assertFalse(enderecoPublico(java.net.InetAddress.getByName("fe80::1").address))
+        assertFalse(enderecoPublico(java.net.InetAddress.getByName("fd00::1").address))
+        assertFalse(enderecoPublico(java.net.InetAddress.getByName("::1").address))
     }
 
     /** Soma de verificação de [n] bytes a partir de [i]: 0 quando o campo de soma dentro deles está certo. */

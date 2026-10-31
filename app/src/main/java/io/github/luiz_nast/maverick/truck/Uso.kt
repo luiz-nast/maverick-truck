@@ -1,6 +1,6 @@
 // Qual app está na frente, pelo histórico de uso do Android (a permissão "Acesso ao uso", dada nas Configurações), e
 // quais apps são navegadores. Sem serviço de acessibilidade: os bancos (o Nubank) travam quem tem um fora da Play Store.
-package io.github.luiz_nast.maverick.pickup
+package io.github.luiz_nast.maverick.truck
 
 import android.app.AppOpsManager
 import android.app.usage.UsageEvents
@@ -19,7 +19,9 @@ class Uso(private val ctx: Context) {
     /** O pacote do app na frente agora (o último que abriu uma tela), lendo só o que aconteceu desde a última vez. */
     fun naFrente(): String? {
         val agora = System.currentTimeMillis()
-        val eventos = runCatching { historico.queryEvents(lidoAte, agora) }.getOrNull() ?: return naFrente
+        // Com 3 s de sobra pra trás: o Android grava o evento um pouco depois da hora dele, e sem a sobra um "abriu o
+        // Instagram" podia cair entre duas leituras e a sessão inteira não contar (revisão de 10-31). Reler é inofensivo
+        val eventos = runCatching { historico.queryEvents(lidoAte - SOBRA_MS, agora) }.getOrNull() ?: return naFrente
         val e = UsageEvents.Event()
         while (eventos.hasNextEvent()) {
             eventos.getNextEvent(e)
@@ -33,6 +35,8 @@ class Uso(private val ctx: Context) {
     }
 
     companion object {
+        private const val SOBRA_MS = 3_000L
+
         /** O app tem o "Acesso ao uso" (sem ele, o escudo não sabe quando o Instagram ou o YouTube está aberto). */
         fun liberado(ctx: Context): Boolean {
             val ops = ctx.getSystemService(AppOpsManager::class.java)

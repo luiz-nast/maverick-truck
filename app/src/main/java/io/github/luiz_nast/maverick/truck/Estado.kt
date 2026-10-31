@@ -1,6 +1,6 @@
-// O estado do Maverick Pickup, guardado no celular: ligado ou não, a rodada de cada site e os endereços que o escudo
+// O estado do Maverick Truck, guardado no celular: ligado ou não, a rodada de cada site e os endereços que o escudo
 // corta no bloqueio. A tela lê daqui ([rodadas], [ligado]); quem escreve é o escudo ([Escudo]).
-package io.github.luiz_nast.maverick.pickup
+package io.github.luiz_nast.maverick.truck
 
 import android.content.Context
 import android.content.SharedPreferences

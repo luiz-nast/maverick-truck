@@ -1,4 +1,4 @@
-package io.github.luiz_nast.maverick.pickup
+package io.github.luiz_nast.maverick.truck
 
 import android.content.BroadcastReceiver
 import android.content.Context
