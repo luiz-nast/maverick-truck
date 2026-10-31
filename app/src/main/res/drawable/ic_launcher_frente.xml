@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- O "M" do Maverick, laranja, dentro da zona segura do ícone adaptativo (os 66 dp do meio) -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#FFFF7A1A"
+        android:pathData="M31,72 L31,36 L42,36 L54,52 L66,36 L77,36 L77,72 L67,72 L67,53 L54,69 L41,53 L41,72 Z" />
+    <path
+        android:fillColor="#FFFF7A1A"
+        android:pathData="M31,77 L77,77 L77,80 L31,80 Z" />
+</vector>

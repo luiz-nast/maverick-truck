@@ -1,0 +1,6 @@
+<resources>
+    <!-- Escuro do começo ao fim, como a tela em Compose (MainActivity.kt) -->
+    <style name="Tema" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/fundo</item>
+    </style>
+</resources>
