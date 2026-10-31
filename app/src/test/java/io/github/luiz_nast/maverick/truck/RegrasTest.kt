@@ -1,6 +1,7 @@
 package io.github.luiz_nast.maverick.truck
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -90,22 +91,21 @@ class RegrasTest {
     }
 
     @Test
-    fun osVideosTocamAPeloMenos40PorCento() {
-        // Volume de mídia do S24 FE: 15 degraus. 40% = 6
-        assertEquals(6, volumeDosVideos(0, 15))
-        assertEquals(6, volumeDosVideos(3, 15))
-        // Mais alto que 40%: fica como está (nunca abaixa)
-        assertEquals(10, volumeDosVideos(10, 15))
-        assertEquals(15, volumeDosVideos(15, 15))
-        assertEquals(10, volumeDosVideos(2, 25))
+    fun aMusicaComecaEm35PorCento() {
+        // Volume de mídia do S24 FE: 15 degraus. 35% = 5,25 → 5
+        assertEquals(5, volumeDaMusica(15))
+        assertEquals(9, volumeDaMusica(25))
+        assertEquals(1, volumeDaMusica(1))
     }
 
     @Test
-    fun aFilaDeVideosDaAVoltaSemPerderNenhum() {
-        assertEquals(VIDEOS, filaDeVideos(0))
-        assertEquals(VIDEOS[3], filaDeVideos(3).first())
-        assertEquals(VIDEOS.last(), filaDeVideos(-1).first())
-        assertEquals(VIDEOS.toSet(), filaDeVideos(7 + VIDEOS.size).toSet())
+    fun oSorteioNaoRepeteOSomAnterior() {
+        assertNull(sortearSom(emptyList(), null))
+        assertEquals("a.mp3", sortearSom(listOf("a.mp3"), "a.mp3"))
+        val nomes = listOf("a.mp3", "b.mp3", "c.mp3")
+        repeat(200) { semente -> assertNotEquals("b.mp3", sortearSom(nomes, "b.mp3", kotlin.random.Random(semente))) }
+        val sorteados = (0 until 200).map { sortearSom(nomes, null, kotlin.random.Random(it)) }.toSet()
+        assertEquals(nomes.toSet(), sorteados)
     }
 
     @Test

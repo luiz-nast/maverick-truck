@@ -64,6 +64,25 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.delay
+import android.graphics.BitmapFactory
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.material3.AlertDialog
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.File
 
 private val Fundo = Color(0xFF0E0F12)
 private val Cartao = Color(0xFF181A20)
@@ -185,6 +204,12 @@ private fun Tela(onLigar: () -> Unit, onNotificacoes: () -> Unit) {
             )
         }
         Spacer(Modifier.height(24.dp))
+        Text("BLOCK SCREEN", color = Apagado, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(8.dp))
+        CartaoDeMusicas(voltas)
+        Spacer(Modifier.height(12.dp))
+        CartaoDeFotos()
+        Spacer(Modifier.height(24.dp))
         Text("PERMISSIONS", color = Apagado, fontSize = 13.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(8.dp))
         for (p in permissoes) LinhaDePermissao(p)
@@ -194,6 +219,152 @@ private fun Tela(onLigar: () -> Unit, onNotificacoes: () -> Unit) {
                 "the shield. Sibling of Maverick, for the Linux desktop.",
             color = Apagado, fontSize = 13.sp,
         )
+        Spacer(Modifier.height(24.dp))
+        // As licenças das fotos de carro pedem o crédito: fica aqui, fora da tela de bloqueio (o dono, 10-31)
+        Text("PHOTO CREDITS", color = Apagado, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(6.dp))
+        for (carro in CARROS) Text(carro.legenda, color = Apagado, fontSize = 12.sp)
+        Text(CREDITOS, color = Apagado, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp))
+    }
+}
+
+/**
+ * As músicas da tela de bloqueio: a biblioteca dividida com o Tourbillon Alarm. Adiciona (um áudio do celular) e apaga
+ * (some dos dois apps). A lista é lida do Tourbillon fora da linha principal, de novo a cada volta pra tela.
+ */
+@Composable
+private fun CartaoDeMusicas(voltas: Int) {
+    val ctx = LocalContext.current
+    val escopo = rememberCoroutineScope()
+    var recarga by remember { mutableIntStateOf(0) }
+    var ocupado by remember { mutableStateOf(false) }
+    var apagar by remember { mutableStateOf<String?>(null) }
+    val nomes by produceState<List<String>?>(null, voltas, recarga) {
+        value = withContext(Dispatchers.IO) { Musicas.listar(ctx) }
+    }
+    val escolher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        ocupado = true
+        escopo.launch {
+            val ok = withContext(Dispatchers.IO) { Musicas.adicionar(ctx, uri) }
+            if (!ok) Toast.makeText(ctx, "Could not add that file.", Toast.LENGTH_LONG).show()
+            ocupado = false
+            recarga++
+        }
+    }
+    Column(Modifier.fillMaxWidth().background(Cartao, RoundedCornerShape(20.dp)).padding(16.dp)) {
+        Text("Music", color = Texto, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+        Text(
+            "A random song plays on the block screen, starting at ${(VOLUME_DA_MUSICA * 100).toInt()}% volume. " +
+                "Same library as Tourbillon Alarm.",
+            color = Apagado, fontSize = 13.sp,
+        )
+        Spacer(Modifier.height(8.dp))
+        val lista = nomes
+        when {
+            lista == null -> Text("Install Tourbillon Alarm to share its music library.", color = Laranja, fontSize = 14.sp)
+            lista.isEmpty() -> Text("No songs yet.", color = Apagado, fontSize = 14.sp)
+            else -> for (nome in lista) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text(nome, color = Texto, fontSize = 15.sp, modifier = Modifier.weight(1f))
+                    TextButton(onClick = { apagar = nome }) { Text("Delete", color = Vermelho) }
+                }
+            }
+        }
+        if (lista != null) {
+            TextButton(onClick = { escolher.launch(arrayOf("audio/*")) }, enabled = !ocupado) {
+                Text(if (ocupado) "Adding…" else "+ Add song", color = Laranja, fontWeight = FontWeight.Bold)
+            }
+        }
+    }
+    apagar?.let { nome ->
+        AlertDialog(
+            onDismissRequest = { apagar = null },
+            title = { Text("Delete $nome?") },
+            text = { Text("It leaves the shared library: Maverick Truck and Tourbillon Alarm both lose it.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    apagar = null
+                    escopo.launch {
+                        withContext(Dispatchers.IO) { Musicas.apagar(ctx, nome) }
+                        recarga++
+                    }
+                }) { Text("Delete", color = Vermelho) }
+            },
+            dismissButton = { TextButton(onClick = { apagar = null }) { Text("Keep") } },
+        )
+    }
+}
+
+/** As fotos da galeria no carrossel da tela de bloqueio, junto com os carros. Toque numa foto pra tirar. */
+@Composable
+private fun CartaoDeFotos() {
+    val ctx = LocalContext.current
+    val escopo = rememberCoroutineScope()
+    LaunchedEffect(Unit) { withContext(Dispatchers.IO) { Fotos.carregar(ctx) } }
+    val fotos by Fotos.lista.collectAsStateWithLifecycle()
+    var ocupado by remember { mutableStateOf(false) }
+    var apagar by remember { mutableStateOf<File?>(null) }
+    val escolher = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(20)) { uris ->
+        if (uris.isEmpty()) return@rememberLauncherForActivityResult
+        ocupado = true
+        escopo.launch {
+            val falhas = withContext(Dispatchers.IO) { uris.count { !Fotos.adicionar(ctx, it) } }
+            if (falhas > 0) Toast.makeText(ctx, "$falhas photo(s) could not be added.", Toast.LENGTH_LONG).show()
+            ocupado = false
+        }
+    }
+    Column(Modifier.fillMaxWidth().background(Cartao, RoundedCornerShape(20.dp)).padding(16.dp)) {
+        Text("Photos", color = Texto, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+        Text(
+            "Your gallery photos join the luxury cars on the block screen (${CARROS.size} cars + ${fotos.size} yours). " +
+                "Tap one to remove it.",
+            color = Apagado, fontSize = 13.sp,
+        )
+        Spacer(Modifier.height(8.dp))
+        for (linha in fotos.chunked(4)) {
+            Row(Modifier.fillMaxWidth().padding(bottom = 6.dp)) {
+                for (f in linha) {
+                    Miniatura(f, Modifier.weight(1f).aspectRatio(1f).padding(3.dp).clickable { apagar = f })
+                }
+                repeat(4 - linha.size) { Spacer(Modifier.weight(1f)) }
+            }
+        }
+        TextButton(
+            onClick = { escolher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+            enabled = !ocupado,
+        ) { Text(if (ocupado) "Adding…" else "+ Add from gallery", color = Laranja, fontWeight = FontWeight.Bold) }
+    }
+    apagar?.let { f ->
+        AlertDialog(
+            onDismissRequest = { apagar = null },
+            title = { Text("Remove this photo?") },
+            text = { Text("It leaves the block screen. The original stays in your gallery.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    apagar = null
+                    escopo.launch { withContext(Dispatchers.IO) { Fotos.apagar(f) } }
+                }) { Text("Remove", color = Vermelho) }
+            },
+            dismissButton = { TextButton(onClick = { apagar = null }) { Text("Keep") } },
+        )
+    }
+}
+
+/** Uma foto pequena (lida reduzida, fora da linha principal). */
+@Composable
+private fun Miniatura(f: File, modifier: Modifier) {
+    val imagem by produceState<ImageBitmap?>(null, f) {
+        value = withContext(Dispatchers.IO) {
+            runCatching {
+                BitmapFactory.decodeFile(f.path, BitmapFactory.Options().apply { inSampleSize = 8 })?.asImageBitmap()
+            }.getOrNull()
+        }
+    }
+    Box(modifier.background(Fundo, RoundedCornerShape(10.dp))) {
+        imagem?.let {
+            Image(it, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(10.dp)))
+        }
     }
 }
 
