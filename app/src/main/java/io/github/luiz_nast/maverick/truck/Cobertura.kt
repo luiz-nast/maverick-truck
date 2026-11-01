@@ -27,6 +27,7 @@ import android.os.Looper
 import android.provider.Settings
 import android.util.Log
 import android.util.TypedValue
+import androidx.core.net.toUri
 import android.view.Gravity
 import android.view.View
 import android.view.WindowManager
@@ -41,7 +42,7 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import kotlin.concurrent.thread
 
-class Cobertura(private val ctx: Context) {
+class Cobertura(private val ctx: Context, private val aoUsarNavegador: () -> Unit = {}) {
     private val janelas = ctx.getSystemService(WindowManager::class.java)
     private val audio = ctx.getSystemService(AudioManager::class.java)
     private val handler = Handler(Looper.getMainLooper())
@@ -50,6 +51,8 @@ class Cobertura(private val ctx: Context) {
     private var titulo: TextView? = null
     private var linha: TextView? = null
     private var siteNaTela: Site? = null
+    private var botaoNavegador: Button? = null
+    private var navegadorNaTela: String? = null // o navegador na frente, se o site está nele (não no app)
 
     /** As fotos desta vez (carros e galeria, embaralhadas) e a que está na tela. */
     private var fotos: List<Any> = emptyList()
@@ -79,7 +82,7 @@ class Cobertura(private val ctx: Context) {
     }
 
     /** Mostra (ou atualiza) a tela por cima pro [site] bloqueado até [ate] (epoch, ms). Sem a permissão, não faz nada. */
-    fun mostrar(site: Site, ate: Long) {
+    fun mostrar(site: Site, ate: Long, navegador: String? = null) {
         if (Build.VERSION.SDK_INT < 23 || !Settings.canDrawOverlays(ctx)) return
         if (vista == null) {
             criar()
@@ -87,6 +90,8 @@ class Cobertura(private val ctx: Context) {
             handler.postDelayed(trocar, TROCA_MS)
             tocarMusica()
         }
+        navegadorNaTela = navegador
+        botaoNavegador?.visibility = if (navegador != null) View.VISIBLE else View.GONE
         if (site != siteNaTela) {
             siteNaTela = site
             titulo?.text = "${site.nome} is blocked"
@@ -103,6 +108,8 @@ class Cobertura(private val ctx: Context) {
         titulo = null
         linha = null
         siteNaTela = null
+        botaoNavegador = null
+        navegadorNaTela = null
         handler.removeCallbacks(trocar)
         pararMusica()
         runCatching { janelas.removeView(v) }
@@ -165,6 +172,20 @@ class Cobertura(private val ctx: Context) {
             setPadding(dp(48), dp(14), dp(48), dp(14))
             setOnClickListener { paraOInicio() }
         }
+        // Só no navegador: usar o navegador pra outra coisa (o dono, 10-31: sem isto, depois do limite era difícil usar o Chrome)
+        botaoNavegador = Button(ctx).apply {
+            text = "Use the browser for something else"
+            isAllCaps = false
+            setTextColor(Color.parseColor("#FFF2F2F3"))
+            background = GradientDrawable().apply {
+                cornerRadius = dp(24).toFloat()
+                setColor(Color.TRANSPARENT)
+                setStroke(dp(1), Color.parseColor("#99FFFFFF"))
+            }
+            setPadding(dp(32), dp(10), dp(32), dp(10))
+            visibility = View.GONE
+            setOnClickListener { usarONavegador() }
+        }
         val meio = LinearLayout(ctx).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
@@ -172,6 +193,7 @@ class Cobertura(private val ctx: Context) {
             addView(titulo)
             addView(linha)
             addView(botao)
+            addView(botaoNavegador, LinearLayout.LayoutParams(-2, -2).apply { topMargin = dp(16) })
         }
         raiz.addView(meio, FrameLayout.LayoutParams(-1, -1, Gravity.CENTER))
         mostrarFoto()
@@ -318,6 +340,21 @@ class Cobertura(private val ctx: Context) {
     private fun paraOInicio() {
         val inicio = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         runCatching { ctx.startActivity(inicio) }
+    }
+
+    /**
+     * Abre uma página em branco do Google no navegador da frente (uma aba nova) e deixa de contar o site que estava
+     * nele: a tela some, e a pessoa usa o navegador à vontade. Voltar pra aba do site bloqueado traz a tela de novo
+     * (o site é pedido outra vez). Um vídeo que siga tocando em outra aba pode trazer a tela de volta: feche essa aba.
+     */
+    private fun usarONavegador() {
+        val pacote = navegadorNaTela ?: return
+        aoUsarNavegador()
+        val pagina = Intent(Intent.ACTION_VIEW, "https://www.google.com".toUri())
+            .setPackage(pacote)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        runCatching { ctx.startActivity(pagina) }.onFailure { Log.w(TAG, "Tela de bloqueio: o navegador não abriu a página nova", it) }
+        esconder()
     }
 
     private fun dp(v: Int): Int = (v * ctx.resources.displayMetrics.density).toInt()

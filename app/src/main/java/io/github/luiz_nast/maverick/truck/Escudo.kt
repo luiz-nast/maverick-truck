@@ -106,7 +106,8 @@ class Escudo : VpnService() {
 
     private var ligado = false
     private var uso: Uso? = null
-    private val cobertura by lazy { Cobertura(this) }
+    // Quando a pessoa pede pra usar o navegador pra outra coisa, o site regrado deixa de contar como "continua na frente"
+    private val cobertura by lazy { Cobertura(this) { naFrenteDesde = System.currentTimeMillis() } }
     private val medidor by lazy { Medidor(this) }
     private var navegadores = emptySet<String>()
     private var uidsDosApps = emptySet<Int>() // os apps do Instagram e do YouTube: o DNS deles em segundo plano não é uso
@@ -114,6 +115,7 @@ class Escudo : VpnService() {
     @Volatile
     private var outraConsulta: Consulta? = null // o último pedido de outro site (nem regrado nem de apoio), de um app conhecido
     private var ultimoNaFrente: String? = null
+    @Volatile
     private var naFrenteDesde = 0L // desde quando [ultimoNaFrente] está na frente sem parar
     private val uids = HashMap<String, Int?>() // o uid de cada pacote que já esteve na frente
     private var ultimoTique = 0L
@@ -252,7 +254,7 @@ class Escudo : VpnService() {
         val ejetar = emUso?.takeIf { depois.bloqueada(agora) }
         if (ejetar != null) {
             medidor.esconder()
-            cobertura.mostrar(ejetar, depois.bloqueadoAte)
+            cobertura.mostrar(ejetar, depois.bloqueadoAte, naFrente.takeIf { it in navegadores })
             if (naFrente != avisadoNaFrente) Notificacoes.avisarBloqueio(this, ejetar, depois.bloqueadoAte)
             avisadoNaFrente = naFrente
         } else {
