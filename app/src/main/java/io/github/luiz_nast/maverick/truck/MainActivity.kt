@@ -84,13 +84,16 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 
-private val Fundo = Color(0xFF0E0F12)
-private val Cartao = Color(0xFF181A20)
-private val Laranja = Color(0xFFFF7A1A)
-private val Vermelho = Color(0xFFE5484D)
-private val Verde = Color(0xFF3DD68C)
-private val Apagado = Color(0xFF8A8F98)
-private val Texto = Color(0xFFF2F2F3)
+// A paleta dos quatro projetos do dono (11-02): 0B0E12, 27313A, 4E5158, 7B848C, 949AA0, 8F2E1D; mais dois tons derivados
+// do vermelho-ferrugem (pra texto e anéis sobre o escuro) e um branco-gelo pros títulos
+private val Fundo = Color(0xFF0B0E12)
+private val Cartao = Color(0xFF27313A)
+private val Destaque = Color(0xFF8F2E1D) // preenchimento (botões)
+private val DestaqueClaro = Color(0xFFC4472E) // texto, anéis e traços sobre o escuro
+private val Vermelho = Color(0xFFE0654A) // perigo, bloqueado
+private val Corpo = Color(0xFF949AA0)
+private val Apagado = Color(0xFF7B848C)
+private val Texto = Color(0xFFECEEF0)
 
 class MainActivity : ComponentActivity() {
     private val pedirVpn = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { r ->
@@ -103,7 +106,7 @@ class MainActivity : ComponentActivity() {
         Estado.carregar(this)
         enableEdgeToEdge()
         setContent {
-            MaterialTheme(colorScheme = darkColorScheme(primary = Laranja, background = Fundo, surface = Cartao)) {
+            MaterialTheme(colorScheme = darkColorScheme(primary = DestaqueClaro, background = Fundo, surface = Cartao)) {
                 Tela(
                     onLigar = ::ligar,
                     onNotificacoes = { if (Build.VERSION.SDK_INT >= 33) pedirNotificacoes.launch(Manifest.permission.POST_NOTIFICATIONS) },
@@ -192,7 +195,7 @@ private fun Tela(onLigar: () -> Unit, onNotificacoes: () -> Unit) {
             val pronto = permissoes.first().ok
             Button(
                 onClick = onLigar, enabled = pronto, modifier = Modifier.fillMaxWidth().height(56.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Laranja, contentColor = Fundo),
+                colors = ButtonDefaults.buttonColors(containerColor = Destaque, contentColor = Texto),
             ) { Text("TURN ON", fontSize = 18.sp, fontWeight = FontWeight.Black) }
             if (!pronto) Text("Allow usage access first.", color = Apagado, fontSize = 14.sp, modifier = Modifier.padding(top = 6.dp))
         }
@@ -265,7 +268,7 @@ private fun CartaoDeMusicas(voltas: Int) {
         val lista = nomes
         when {
             !carregou -> Text("Loading…", color = Apagado, fontSize = 14.sp)
-            lista == null -> Text("Tourbillon Alarm is not available, so there is no music library to share.", color = Laranja, fontSize = 14.sp)
+            lista == null -> Text("Tourbillon Alarm is not available, so there is no music library to share.", color = DestaqueClaro, fontSize = 14.sp)
             lista.isEmpty() -> Text("No songs yet.", color = Apagado, fontSize = 14.sp)
             else -> for (nome in lista) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -276,7 +279,7 @@ private fun CartaoDeMusicas(voltas: Int) {
         }
         if (carregou && lista != null) {
             TextButton(onClick = { escolher.launch(arrayOf("audio/*")) }, enabled = !ocupado) {
-                Text(if (ocupado) "Adding…" else "+ Add song", color = Laranja, fontWeight = FontWeight.Bold)
+                Text(if (ocupado) "Adding…" else "+ Add song", color = DestaqueClaro, fontWeight = FontWeight.Bold)
             }
         }
     }
@@ -339,7 +342,7 @@ private fun CartaoDeFotos() {
         TextButton(
             onClick = { escolher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
             enabled = !ocupado,
-        ) { Text(if (ocupado) "Adding…" else "+ Add from gallery", color = Laranja, fontWeight = FontWeight.Bold) }
+        ) { Text(if (ocupado) "Adding…" else "+ Add from gallery", color = DestaqueClaro, fontWeight = FontWeight.Bold) }
     }
     apagar?.let { f ->
         AlertDialog(
@@ -385,7 +388,7 @@ private fun CartaoDoCadeado(rodada: Rodada, agora: Long, ligado: Boolean) {
         )
         // No meio do anel, o tempo USADO, igual à plaquinha por cima do Instagram (o dono, 10-31: 2:30 lá e 4:28 aqui confundia)
         else -> Quatro(
-            if (rodada.usadoMs == 0L) Verde else Laranja, rodada.usadoMs.toFloat() / LIVRE_MS, mmss(rodada.usadoMs),
+            if (rodada.usadoMs == 0L) Corpo else DestaqueClaro, rodada.usadoMs.toFloat() / LIVRE_MS, mmss(rodada.usadoMs),
             "Free · ${mmss(rodada.usadoMs)} of ${mmss(LIVRE_MS)} used · ${mmss(rodada.restanteMs(agora))} left",
         )
     }
@@ -429,9 +432,9 @@ private fun LinhaDePermissao(p: Permissao) {
             Text(p.pra, color = Apagado, fontSize = 13.sp)
         }
         if (p.ok) {
-            Text("✓", color = Verde, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+            Text("✓", color = Corpo, fontSize = 22.sp, fontWeight = FontWeight.Bold)
         } else {
-            TextButton(onClick = p.abrir) { Text("Allow", color = Laranja, fontWeight = FontWeight.Bold) }
+            TextButton(onClick = p.abrir) { Text("Allow", color = DestaqueClaro, fontWeight = FontWeight.Bold) }
         }
     }
 }

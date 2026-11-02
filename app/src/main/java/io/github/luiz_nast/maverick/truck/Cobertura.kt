@@ -151,23 +151,23 @@ class Cobertura(private val ctx: Context, private val aoUsarNavegador: () -> Uni
         )
         titulo = TextView(ctx).apply {
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 30f)
-            setTextColor(Color.parseColor("#FFF2F2F3"))
+            setTextColor(Color.parseColor("#FFECEEF0"))
             gravity = Gravity.CENTER
             setShadowLayer(8f, 0f, 2f, Color.BLACK)
         }
         linha = TextView(ctx).apply {
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 18f)
-            setTextColor(Color.parseColor("#FFE6E6E8"))
+            setTextColor(Color.parseColor("#FF949AA0"))
             gravity = Gravity.CENTER
             setPadding(0, dp(16), 0, dp(32))
             setShadowLayer(8f, 0f, 2f, Color.BLACK)
         }
         val botao = Button(ctx).apply {
             text = "Leave"
-            setTextColor(Color.parseColor("#FF0E0F12"))
+            setTextColor(Color.parseColor("#FFECEEF0"))
             background = GradientDrawable().apply {
                 cornerRadius = dp(24).toFloat()
-                setColor(Color.parseColor("#FFFF7A1A"))
+                setColor(Color.parseColor("#FF8F2E1D"))
             }
             setPadding(dp(48), dp(14), dp(48), dp(14))
             setOnClickListener { paraOInicio() }
@@ -176,11 +176,11 @@ class Cobertura(private val ctx: Context, private val aoUsarNavegador: () -> Uni
         botaoNavegador = Button(ctx).apply {
             text = "Use the browser for something else"
             isAllCaps = false
-            setTextColor(Color.parseColor("#FFF2F2F3"))
+            setTextColor(Color.parseColor("#FFECEEF0"))
             background = GradientDrawable().apply {
                 cornerRadius = dp(24).toFloat()
                 setColor(Color.TRANSPARENT)
-                setStroke(dp(1), Color.parseColor("#99FFFFFF"))
+                setStroke(dp(1), Color.parseColor("#997B848C"))
             }
             setPadding(dp(32), dp(10), dp(32), dp(10))
             visibility = View.GONE

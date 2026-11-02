@@ -32,9 +32,9 @@ class Medidor(private val ctx: Context) {
         if (selo == null) criar()
         val fracao = if (totalMs > 0) usadoMs.toFloat() / totalMs else 0f
         val cor = when {
-            fracao < 0.6f -> Color.parseColor("#FF3DD68C") // verde
-            fracao < 0.85f -> Color.parseColor("#FFFF7A1A") // laranja
-            else -> Color.parseColor("#FFE5484D") // vermelho
+            fracao < 0.6f -> Color.parseColor("#FF949AA0") // cinza (a paleta: sem verde)
+            fracao < 0.85f -> Color.parseColor("#FFC4472E") // ferrugem
+            else -> Color.parseColor("#FFE0654A") // ferrugem forte
         }
         selo?.apply {
             text = "${site.nome}  ${mmss(usadoMs)} / ${mmss(totalMs)}"
@@ -58,7 +58,7 @@ class Medidor(private val ctx: Context) {
             setPadding(dp(14f), dp(7f), dp(14f), dp(7f))
             background = GradientDrawable().apply {
                 cornerRadius = dp(20f).toFloat()
-                setColor(Color.parseColor("#E60E0F12")) // fundo escuro quase opaco
+                setColor(Color.parseColor("#E60B0E12")) // fundo escuro quase opaco
             }
         }
         val lp = WindowManager.LayoutParams(
