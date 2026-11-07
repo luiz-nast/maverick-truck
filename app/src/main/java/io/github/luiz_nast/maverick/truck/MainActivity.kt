@@ -30,7 +30,6 @@ import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -84,17 +83,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 
-// A paleta dos quatro projetos do dono (11-02): 0B0E12, 27313A, 4E5158, 7B848C, 949AA0, 8F2E1D; mais dois tons derivados
-// do vermelho-ferrugem (pra texto e anéis sobre o escuro) e um branco-gelo pros títulos
-private val Fundo = Color(0xFF0B0E12)
-private val Cartao = Color(0xFF27313A)
-private val Destaque = Color(0xFF8F2E1D) // preenchimento (botões)
-private val DestaqueClaro = Color(0xFFC4472E) // texto, anéis e traços sobre o escuro
-private val Vermelho = Color(0xFFE0654A) // perigo, bloqueado
-private val Corpo = Color(0xFF949AA0)
-private val Apagado = Color(0xFF7B848C)
-private val Texto = Color(0xFFECEEF0)
-
 class MainActivity : ComponentActivity() {
     private val pedirVpn = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { r ->
         if (r.resultCode == RESULT_OK) Escudo.ligar(this)
@@ -106,7 +94,10 @@ class MainActivity : ComponentActivity() {
         Estado.carregar(this)
         enableEdgeToEdge()
         setContent {
-            MaterialTheme(colorScheme = darkColorScheme(primary = DestaqueClaro, background = Fundo, surface = Cartao)) {
+            MaterialTheme(
+                colorScheme = darkColorScheme(primary = DestaqueClaro, background = Fundo, surface = Cartao),
+                typography = Tipo, shapes = Formas,
+            ) {
                 Tela(
                     onLigar = ::ligar,
                     onNotificacoes = { if (Build.VERSION.SDK_INT >= 33) pedirNotificacoes.launch(Manifest.permission.POST_NOTIFICATIONS) },
@@ -180,24 +171,23 @@ private fun Tela(onLigar: () -> Unit, onNotificacoes: () -> Unit) {
     val particular = remember(voltas) { dnsParticular(ctx) }
 
     Column(
-        Modifier.fillMaxSize().background(Fundo).safeDrawingPadding().verticalScroll(rememberScrollState()).padding(20.dp),
+        Modifier.fillMaxSize().background(Fundo).safeDrawingPadding().verticalScroll(rememberScrollState()).padding(Medida.tela),
     ) {
-        Text("Maverick Truck", color = Texto, fontSize = 32.sp, fontWeight = FontWeight.Black)
+        Text("Maverick Truck", color = Texto, style = MaterialTheme.typography.headlineMedium)
         Text(
             "Instagram and YouTube, app and site: ${LIVRE_MS / 60_000} minutes of use, then ${BLOQUEIO_MS / 60_000} minutes blocked.",
-            color = Apagado, fontSize = 16.sp,
+            color = Corpo, fontSize = 16.sp,
         )
         Spacer(Modifier.height(20.dp))
         CartaoDoCadeado(rodada, agora, ligado)
-        Spacer(Modifier.height(12.dp))
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(20.dp))
         if (!ligado) {
             val pronto = permissoes.first().ok
             Button(
-                onClick = onLigar, enabled = pronto, modifier = Modifier.fillMaxWidth().height(56.dp),
+                onClick = onLigar, enabled = pronto, modifier = Modifier.fillMaxWidth().height(Medida.botao),
                 colors = ButtonDefaults.buttonColors(containerColor = Destaque, contentColor = Texto),
             ) { Text("TURN ON", fontSize = 18.sp, fontWeight = FontWeight.Black) }
-            if (!pronto) Text("Allow usage access first.", color = Apagado, fontSize = 14.sp, modifier = Modifier.padding(top = 6.dp))
+            if (!pronto) Text("Allow usage access first.", color = Corpo, fontSize = 14.sp, modifier = Modifier.padding(top = 8.dp))
         }
         if (particular != null) {
             Spacer(Modifier.height(12.dp))
@@ -206,26 +196,26 @@ private fun Tela(onLigar: () -> Unit, onNotificacoes: () -> Unit) {
                     "Settings › Connections › More connection settings › Private DNS.",
             )
         }
-        Spacer(Modifier.height(24.dp))
-        Text("BLOCK SCREEN", color = Apagado, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(Medida.antesDeSecao))
+        Text("BLOCK SCREEN", color = Apagado, style = MaterialTheme.typography.labelMedium)
+        Spacer(Modifier.height(Medida.rotulo))
         CartaoDeMusicas(voltas)
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(Medida.entreCartoes))
         CartaoDeFotos()
-        Spacer(Modifier.height(24.dp))
-        Text("PERMISSIONS", color = Apagado, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(Medida.antesDeSecao))
+        Text("PERMISSIONS", color = Apagado, style = MaterialTheme.typography.labelMedium)
+        Spacer(Modifier.height(Medida.rotulo))
         for (p in permissoes) LinhaDePermissao(p)
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(Medida.antesDeSecao))
         Text(
             "Counts only while the app (or the site, in a browser) is on screen. Banks and Tourbillon Alarm stay outside " +
                 "the shield. Sibling of Maverick, for the Linux desktop.",
-            color = Apagado, fontSize = 13.sp,
+            color = Corpo, fontSize = 14.sp,
         )
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(Medida.antesDeSecao))
         // As licenças das fotos de carro pedem o crédito: fica aqui, fora da tela de bloqueio (o dono, 10-31)
-        Text("PHOTO CREDITS", color = Apagado, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-        Spacer(Modifier.height(6.dp))
+        Text("PHOTO CREDITS", color = Apagado, style = MaterialTheme.typography.labelMedium)
+        Spacer(Modifier.height(Medida.rotulo))
         for (carro in CARROS) Text(carro.legenda, color = Apagado, fontSize = 12.sp)
         Text(CREDITOS, color = Apagado, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp))
     }
@@ -257,22 +247,22 @@ private fun CartaoDeMusicas(voltas: Int) {
             recarga++
         }
     }
-    Column(Modifier.fillMaxWidth().background(Cartao, RoundedCornerShape(20.dp)).padding(16.dp)) {
-        Text("Music", color = Texto, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+    Column(Modifier.fillMaxWidth().background(Cartao, MaterialTheme.shapes.medium).padding(Medida.dentroCartao)) {
+        Text("Music", color = Texto, style = MaterialTheme.typography.titleMedium)
         Text(
             "A random song plays on the block screen, starting at ${(VOLUME_DA_MUSICA * 100).toInt()}% volume. " +
                 "Same library as Tourbillon Alarm.",
-            color = Apagado, fontSize = 13.sp,
+            color = Corpo, fontSize = 14.sp,
         )
         Spacer(Modifier.height(8.dp))
         val lista = nomes
         when {
-            !carregou -> Text("Loading…", color = Apagado, fontSize = 14.sp)
+            !carregou -> Text("Loading…", color = Corpo, fontSize = 14.sp)
             lista == null -> Text("Tourbillon Alarm is not available, so there is no music library to share.", color = DestaqueClaro, fontSize = 14.sp)
-            lista.isEmpty() -> Text("No songs yet.", color = Apagado, fontSize = 14.sp)
+            lista.isEmpty() -> Text("No songs yet.", color = Corpo, fontSize = 14.sp)
             else -> for (nome in lista) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text(nome, color = Texto, fontSize = 15.sp, modifier = Modifier.weight(1f))
+                    Text(nome, color = Texto, fontSize = 16.sp, modifier = Modifier.weight(1f))
                     TextButton(onClick = { apagar = nome }) { Text("Delete", color = Vermelho) }
                 }
             }
@@ -323,18 +313,18 @@ private fun CartaoDeFotos() {
             ocupado = false
         }
     }
-    Column(Modifier.fillMaxWidth().background(Cartao, RoundedCornerShape(20.dp)).padding(16.dp)) {
-        Text("Photos", color = Texto, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+    Column(Modifier.fillMaxWidth().background(Cartao, MaterialTheme.shapes.medium).padding(Medida.dentroCartao)) {
+        Text("Photos", color = Texto, style = MaterialTheme.typography.titleMedium)
         Text(
             "Your gallery photos join the luxury cars on the block screen (${CARROS.size} cars + ${fotos.size} yours). " +
                 "Tap one to remove it.",
-            color = Apagado, fontSize = 13.sp,
+            color = Corpo, fontSize = 14.sp,
         )
         Spacer(Modifier.height(8.dp))
         for (linha in fotos.chunked(4)) {
-            Row(Modifier.fillMaxWidth().padding(bottom = 6.dp)) {
+            Row(Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
                 for (f in linha) {
-                    Miniatura(f, Modifier.weight(1f).aspectRatio(1f).padding(3.dp).clickable { apagar = f })
+                    Miniatura(f, Modifier.weight(1f).aspectRatio(1f).padding(4.dp).clickable { apagar = f })
                 }
                 repeat(4 - linha.size) { Spacer(Modifier.weight(1f)) }
             }
@@ -370,9 +360,9 @@ private fun Miniatura(f: File, modifier: Modifier) {
             }.getOrNull()
         }
     }
-    Box(modifier.background(Fundo, RoundedCornerShape(10.dp))) {
+    Box(modifier.background(Fundo, MaterialTheme.shapes.small)) {
         imagem?.let {
-            Image(it, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(10.dp)))
+            Image(it, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().clip(MaterialTheme.shapes.small))
         }
     }
 }
@@ -393,7 +383,7 @@ private fun CartaoDoCadeado(rodada: Rodada, agora: Long, ligado: Boolean) {
         )
     }
     Row(
-        Modifier.fillMaxWidth().background(Cartao, RoundedCornerShape(20.dp)).padding(16.dp),
+        Modifier.fillMaxWidth().background(Cartao, MaterialTheme.shapes.medium).padding(Medida.dentroCartao),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(Modifier.size(84.dp), contentAlignment = Alignment.Center) {
@@ -402,9 +392,9 @@ private fun CartaoDoCadeado(rodada: Rodada, agora: Long, ligado: Boolean) {
         }
         Spacer(Modifier.width(16.dp))
         Column {
-            Text("Instagram & YouTube", color = Texto, fontSize = 22.sp, fontWeight = FontWeight.Bold)
-            Text(linha, color = cor, fontSize = 15.sp)
-            Text("One leash for both", color = Apagado, fontSize = 13.sp)
+            Text("Instagram & YouTube", color = Texto, style = MaterialTheme.typography.titleMedium)
+            Text(linha, color = cor, fontSize = 16.sp)
+            Text("One leash for both", color = Corpo, fontSize = 14.sp)
         }
     }
 }
@@ -426,10 +416,10 @@ private fun Anel(fracao: Float, cor: Color, modifier: Modifier) {
 
 @Composable
 private fun LinhaDePermissao(p: Permissao) {
-    Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
             Text(p.nome, color = Texto, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-            Text(p.pra, color = Apagado, fontSize = 13.sp)
+            Text(p.pra, color = Corpo, fontSize = 14.sp)
         }
         if (p.ok) {
             Text("✓", color = Corpo, fontSize = 22.sp, fontWeight = FontWeight.Bold)
@@ -443,6 +433,6 @@ private fun LinhaDePermissao(p: Permissao) {
 private fun Aviso(texto: String) {
     Text(
         texto, color = Texto, fontSize = 14.sp,
-        modifier = Modifier.fillMaxWidth().background(Vermelho.copy(alpha = 0.18f), RoundedCornerShape(14.dp)).padding(12.dp),
+        modifier = Modifier.fillMaxWidth().background(Vermelho.copy(alpha = 0.18f), MaterialTheme.shapes.small).padding(12.dp),
     )
 }
