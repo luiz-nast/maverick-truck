@@ -6,6 +6,7 @@
 // 2. Ejeta. Enquanto um site está bloqueado e o app dele (ou um navegador no site) está na frente, a tela de bloqueio
 //    aparece por cima (Cobertura), com um botão que vai pra tela inicial. Só sobre o Instagram e o YouTube: nunca sobre
 //    banco, o despertador ou outro app.
+//    Na atividade da manhã do Tourbillon Alarm (Manha), a etapa dele manda: o site livre dela não conta, o outro é ejetado.
 //
 // Pra saber que um navegador está num site bloqueado, sem serviço de acessibilidade (que o Nubank trava), o escudo é uma
 // VPN local que só observa o DNS: todas as perguntas de endereço passam por ele, que anota quais apps perguntaram pelo
@@ -75,6 +76,9 @@ class Escudo : VpnService() {
         private const val ESPERA_DNS_MS = 2_000
         private const val RELER_SERVIDORES_MS = 30_000L
 
+        /** De quanto em quanto tempo o escudo pergunta ao Tourbillon a etapa da manhã ([Manha]). */
+        private const val LER_MANHA_MS = 5_000L
+
         /** Uma pergunta que esperou mais que isto na fila já foi repetida pelo Android: a velha não vai pro DNS. */
         private const val PERGUNTA_VELHA_MS = 4_000L
 
@@ -123,6 +127,13 @@ class Escudo : VpnService() {
     private var notificadoEm = 0L
     private var ultimoTexto = ""
     private var avisadoNaFrente: String? = null
+
+    /** A última resposta do Tourbillon ([Manha.ler]), lida fora da linha principal; null: nenhuma (falha fechada). */
+    @Volatile
+    private var manha: Pair<String?, Long>? = null
+    @Volatile
+    private var lendoManha = false
+    private var manhaLidaEm = 0L // elapsedRealtime: o relógio de parede mexido não para as perguntas
 
     @Volatile
     private var servidores: List<InetAddress> = emptyList()
@@ -241,29 +252,54 @@ class Escudo : VpnService() {
             naFrenteDesde = agora
         }
         val emUso = siteEmUso(naFrente, uidNaFrente, navegadores, ultimaConsulta, agora, naFrenteDesde, outraConsulta)
+        val etapa = etapaDaManha(agora)
         // Uma rodada só: o tempo do Instagram e do YouTube soma junto, e o bloqueio vale pros dois ([Estado.rodada])
         val antes = Estado.rodada.value
-        val depois = antes.avancar(agora, if (emUso != null) passou else 0L)
+        val (depois, ejetar) = decidir(antes, emUso, etapa, agora, passou)
         val comecou = !antes.bloqueada(agora) && depois.bloqueada(agora)
         val virou = comecou || (antes.bloqueadoAte != 0L && depois.bloqueadoAte == 0L)
         val gravar = virou || agora - gravadoEm >= GRAVAR_MS
         Estado.atualizar(depois, gravar)
         if (gravar) gravadoEm = agora
         if (comecou) Log.i(TAG, "Escudo: 7 min usados (Instagram + YouTube), os dois bloqueados por ${BLOQUEIO_MS / 60_000} min")
-        // Bloqueado e um dos dois na frente (o app, ou um navegador no site): a tela de bloqueio aparece por cima dele
-        val ejetar = emUso?.takeIf { depois.bloqueada(agora) }
+        // Bloqueado (ou trancado pela manhã) e um dos dois na frente (o app, ou um navegador no site): a tela de bloqueio aparece por cima dele
         if (ejetar != null) {
             medidor.esconder()
-            cobertura.mostrar(ejetar, depois.bloqueadoAte, naFrente.takeIf { it in navegadores })
-            if (naFrente != avisadoNaFrente) Notificacoes.avisarBloqueio(this, ejetar, depois.bloqueadoAte)
+            cobertura.mostrar(ejetar, depois.bloqueadoAte, naFrente.takeIf { it in navegadores }, naManha = etapa != null)
+            if (naFrente != avisadoNaFrente && etapa == null) Notificacoes.avisarBloqueio(this, ejetar, depois.bloqueadoAte)
             avisadoNaFrente = naFrente
         } else {
             cobertura.esconder()
             avisadoNaFrente = null
             // Livre, com o Instagram ou o YouTube na frente: a plaquinha do tempo (igual à do Maverick do computador)
-            if (emUso != null) medidor.mostrar(emUso, depois.usadoMs, LIVRE_MS) else medidor.esconder()
+            if (emUso != null && etapa == null) medidor.mostrar(emUso, depois.usadoMs, LIVRE_MS) else medidor.esconder()
         }
-        atualizarNotificacao(agora, depois, forcar = virou)
+        atualizarNotificacao(agora, depois, etapa, forcar = virou)
+    }
+
+    /**
+     * A etapa da manhã do Tourbillon que vale [agora] (null: as regras de sempre). Pergunta de novo a cada [LER_MANHA_MS],
+     * fora da linha principal (o Tourbillon pode estar dormindo), uma pergunta por vez; o que ele respondeu só vale até
+     * o "vale até" dele, então um Tourbillon morto ou calado devolve as regras de sempre sozinho.
+     */
+    private fun etapaDaManha(agora: Long): Etapa? {
+        val relogio = SystemClock.elapsedRealtime()
+        if (!lendoManha && relogio - manhaLidaEm >= LER_MANHA_MS) {
+            lendoManha = true
+            manhaLidaEm = relogio
+            runCatching {
+                consultas.execute {
+                    manha = Manha.ler(this@Escudo)
+                    lendoManha = false
+                }
+            }.onFailure { lendoManha = false }
+        }
+        val etapa = manha?.let { (nome, valeAte) -> etapaQueVale(nome, valeAte, agora) }
+        if (etapa != Estado.manha.value) {
+            Log.i(TAG, "Escudo: manhã do Tourbillon: ${etapa?.let { "$it (${it.texto})" } ?: "acabou, as regras de sempre"}")
+            Estado.mudarManha(etapa)
+        }
+        return etapa
     }
 
     /** O túnel que só observa o DNS: a única rota é o servidor de DNS de mentira dentro dele. Montado uma vez; só volta se a leitura cair. */
@@ -440,12 +476,12 @@ class Escudo : VpnService() {
     }
 
     /** A notificação fixa com a rodada de cada site; no máximo a cada [NOTIFICAR_MS], ou na hora quando um bloqueio começa ou acaba. */
-    private fun atualizarNotificacao(agora: Long, rodada: Rodada, forcar: Boolean) {
+    private fun atualizarNotificacao(agora: Long, rodada: Rodada, etapa: Etapa?, forcar: Boolean) {
         if (!forcar && agora - notificadoEm < NOTIFICAR_MS) return
-        val texto = if (rodada.bloqueada(agora)) {
-            "Instagram & YouTube blocked · ${mmss(rodada.restanteMs(agora))} left"
-        } else {
-            "Instagram & YouTube · ${mmss(rodada.usadoMs)} of ${mmss(LIVRE_MS)} used"
+        val texto = when {
+            etapa != null -> "Tourbillon morning routine · ${etapa.texto}"
+            rodada.bloqueada(agora) -> "Instagram & YouTube blocked · ${mmss(rodada.restanteMs(agora))} left"
+            else -> "Instagram & YouTube · ${mmss(rodada.usadoMs)} of ${mmss(LIVRE_MS)} used"
         }
         if (texto == ultimoTexto && !forcar) return
         ultimoTexto = texto

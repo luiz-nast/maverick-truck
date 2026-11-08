@@ -42,6 +42,18 @@ When a round runs out, a full-screen cover drops over the blocked app with "Inst
 
 You can turn the shield off from the app, but only while nothing is blocked. That is the whole point.
 
+### Tourbillon's morning routine
+
+While [Tourbillon Alarm](https://github.com/luiz-nast/tourbillon-alarm)'s morning activity runs, its stage rules both sites (`Manha.kt`, read every 5 s from its `content://com.implacavel.alarme.modo` provider, same signature permission as the music library):
+
+| Stage | Instagram | YouTube |
+|---|---|---|
+| Walk (`CAMINHADA`) | Free | Locked |
+| Camera (`CAMERA`) | Locked | Free |
+| Talk (`CONVERSA`) | Locked | Locked |
+
+"Locked" is the cover, with no time on it: it opens when the routine ends. Free time in the routine does not count toward the 7 minutes, and the round picks up where it was when the routine ends (a block keeps running by the clock). The main screen shows the stage; there is nothing to pause or change meanwhile. It fails closed: no answer, an unknown stage, or a `valeAte` that has passed (or is more than 5 min ahead, a moved clock) means the usual rules, so a dead Tourbillon brings the usual rules back within 90 s. The YouTube page inside Tourbillon is never touched: the alarm stays outside the tunnel and is not a browser.
+
 ## How it works
 
 ```mermaid
@@ -119,7 +131,7 @@ Most app blockers watch the screen through an accessibility service and press Ho
 
 | File | What it does |
 |---|---|
-| `Regras.kt` | Pure rules, tested: the two sites (`Site`: packages, ruled domains), `siteDoDominio`, the round (`Rodada.avancar`, `LIVRE_MS` = 7 min, `BLOQUEIO_MS` = 15 min), `siteEmUso` (with who asked: `Consulta`) |
+| `Regras.kt` | Pure rules, tested: the two sites (`Site`: packages, ruled domains), `siteDoDominio`, the round (`Rodada.avancar`, `LIVRE_MS` = 7 min, `BLOQUEIO_MS` = 15 min), `siteEmUso` (with who asked: `Consulta`), the morning stages (`Etapa`, `etapaQueVale`, `decidir`) |
 | `Dns.kt` | Pure packet work, tested: read a DNS question from an IPv4/UDP packet (`lerPerguntaDns`), the question name, the 10 s TTL rewrite (`encurtarTtl`), build an IPv4/UDP packet with both checksums |
 | `Escudo.kt` | The `VpnService`: the 1 s tick (usage, rounds, notices, the cover), the DNS-only tunnel (never blocks; rebuilt only if its reader dies), the reader thread (`Os.poll`), forwarding to the real DNS through protected sockets (re-read on every network change), who asked (`getConnectionOwnerUid`) |
 | `Uso.kt` | Which app is on screen (`UsageStatsManager.queryEvents`), whether usage access is granted, which apps are browsers |
@@ -129,6 +141,7 @@ Most app blockers watch the screen through an accessibility service and press Ho
 | `Cobertura.kt` | The full-screen cover shown over a blocked app while it is in front (`SYSTEM_ALERT_WINDOW`); never over a bank |
 | `Carros.kt` | The car photos of the cover's carousel (`res/drawable-nodpi/carro_XX.jpg`) and their on-screen credit lines |
 | `Musicas.kt` | The music library shared with Tourbillon Alarm (list, open, add, delete through its `FonteDeSons` provider, signature permission), `volumeDaMusica` (35%) and `sortearSom` (random, never the same song twice in a row) |
+| `Manha.kt` | Reads Tourbillon's morning stage (`etapa`, `valeAte`) from its provider, off the main thread |
 | `Fotos.kt` | Your gallery photos for the carousel: picked with the system photo picker (no gallery permission), copied into the app at screen size |
 | `Medidor.kt` | The small floating pill (same permission) with "used / 7:00", shown while Instagram or YouTube is in front and still free; drag it anywhere and it remembers the spot; like the desktop Maverick's counter; never over a bank |
 | `BootReceiver.kt` | Brings the shield back after a reboot or an app update |

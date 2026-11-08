@@ -138,6 +138,7 @@ private fun Tela(onLigar: () -> Unit, onNotificacoes: () -> Unit) {
     val ctx = LocalContext.current
     val ligado by Estado.ligado.collectAsStateWithLifecycle()
     val rodada by Estado.rodada.collectAsStateWithLifecycle()
+    val manha by Estado.manha.collectAsStateWithLifecycle()
     var agora by remember { mutableLongStateOf(System.currentTimeMillis()) }
     LaunchedEffect(Unit) {
         while (true) {
@@ -179,7 +180,7 @@ private fun Tela(onLigar: () -> Unit, onNotificacoes: () -> Unit) {
             color = Corpo, fontSize = 16.sp,
         )
         Spacer(Modifier.height(20.dp))
-        CartaoDoCadeado(rodada, agora, ligado)
+        CartaoDoCadeado(rodada, agora, ligado, manha)
         Spacer(Modifier.height(20.dp))
         if (!ligado) {
             val pronto = permissoes.first().ok
@@ -368,7 +369,7 @@ private fun Miniatura(f: File, modifier: Modifier) {
 }
 
 @Composable
-private fun CartaoDoCadeado(rodada: Rodada, agora: Long, ligado: Boolean) {
+private fun CartaoDoCadeado(rodada: Rodada, agora: Long, ligado: Boolean, manha: Etapa?) {
     val bloqueada = rodada.bloqueada(agora)
     val (cor, fracao, centro, linha) = when {
         !ligado -> Quatro(Apagado, 0f, "off", "Shield off")
@@ -395,6 +396,10 @@ private fun CartaoDoCadeado(rodada: Rodada, agora: Long, ligado: Boolean) {
             Text("Instagram & YouTube", color = Texto, style = MaterialTheme.typography.titleMedium)
             Text(linha, color = cor, fontSize = 16.sp)
             Text("One leash for both", color = Corpo, fontSize = 14.sp)
+            // Na manhã do Tourbillon, só se vê: não há o que pausar nem regra pra mudar aqui (o dono, 11-08)
+            if (ligado && manha != null) {
+                Text("Tourbillon morning routine: ${manha.texto}. Locked until it ends.", color = DestaqueClaro, fontSize = 14.sp)
+            }
         }
     }
 }

@@ -22,6 +22,15 @@ object Estado {
     /** A rodada única: o Instagram e o YouTube somam no mesmo tempo e são bloqueados juntos. */
     val rodada: StateFlow<Rodada> = _rodada.asStateFlow()
 
+    private val _manha = MutableStateFlow<Etapa?>(null)
+
+    /** A etapa da manhã do Tourbillon que vale agora (null: as regras de sempre). Só na memória: o escudo pergunta de novo. */
+    val manha: StateFlow<Etapa?> = _manha.asStateFlow()
+
+    fun mudarManha(etapa: Etapa?) {
+        _manha.value = etapa
+    }
+
     /** Lê o que está guardado (uma vez por processo: a tela, o escudo e o reinício chamam). */
     @Synchronized
     fun carregar(ctx: Context) {

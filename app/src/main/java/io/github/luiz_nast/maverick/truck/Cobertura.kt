@@ -81,8 +81,11 @@ class Cobertura(private val ctx: Context, private val aoUsarNavegador: () -> Uni
         }
     }
 
-    /** Mostra (ou atualiza) a tela por cima pro [site] bloqueado até [ate] (epoch, ms). Sem a permissão, não faz nada. */
-    fun mostrar(site: Site, ate: Long, navegador: String? = null) {
+    /**
+     * Mostra (ou atualiza) a tela por cima pro [site] bloqueado até [ate] (epoch, ms), ou trancado pela manhã do
+     * Tourbillon ([naManha]: sem hora, abre quando ela acabar). Sem a permissão, não faz nada.
+     */
+    fun mostrar(site: Site, ate: Long, navegador: String? = null, naManha: Boolean = false) {
         if (Build.VERSION.SDK_INT < 23 || !Settings.canDrawOverlays(ctx)) return
         if (vista == null) {
             criar()
@@ -97,7 +100,11 @@ class Cobertura(private val ctx: Context, private val aoUsarNavegador: () -> Uni
             titulo?.text = "${site.nome} is blocked"
         }
         val hora = DateTimeFormatter.ofPattern("HH:mm").format(Instant.ofEpochMilli(ate).atZone(ZoneId.systemDefault()))
-        linha?.text = "Your ${LIVRE_MS / 60_000} minutes are up.\nFree again at $hora."
+        linha?.text = if (naManha) {
+            "Tourbillon's morning routine is on.\nIt opens again when the routine ends."
+        } else {
+            "Your ${LIVRE_MS / 60_000} minutes are up.\nFree again at $hora."
+        }
     }
 
     /** Tira a tela, se estiver aparecendo; a música para e o volume de antes volta. */
