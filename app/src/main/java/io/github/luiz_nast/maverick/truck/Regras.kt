@@ -1,5 +1,5 @@
 // As regras do Maverick Truck, puras (sem Android), com testes em RegrasTest: os sites regrados, a rodada de cada um
-// (7 min de uso, depois 15 min bloqueado pelo relógio) e quando um momento conta como uso.
+// (7 min de uso, depois 15 min bloqueado pelo relógio), quando um momento conta como uso e o que a manhã do Tourbillon muda.
 package io.github.luiz_nast.maverick.truck
 
 /** Uso liberado por rodada; passou disso, o site fica bloqueado por [BLOQUEIO_MS] (o dono, 10-30: "7 min liberados, 15 bloqueados"). */
@@ -81,6 +81,39 @@ data class Rodada(val usadoMs: Long = 0L, val bloqueadoAte: Long = 0L) {
         val usado = usadoMs + emUsoMs.coerceIn(0L, TIQUE_MAX_MS)
         return if (usado >= LIVRE_MS) Rodada(LIVRE_MS, agora + BLOQUEIO_MS) else copy(usadoMs = usado)
     }
+}
+
+/**
+ * A etapa da atividade da manhã do Tourbillon Alarm, que manda nos sites enquanto dura (o dono, 11-08): na caminhada o
+ * Instagram fica [livre], na câmera o YouTube, na conversa nenhum. O outro site fica trancado (a tela de bloqueio).
+ */
+enum class Etapa(val livre: Site?, val texto: String) {
+    CONVERSA(null, "Instagram & YouTube locked"),
+    CAMINHADA(Site.INSTAGRAM, "Instagram free, YouTube locked"),
+    CAMERA(Site.YOUTUBE, "YouTube free, Instagram locked"),
+}
+
+/** O "vale até" do Tourbillon mais longe que isto no futuro é erro ou relógio mexido: não vale. */
+const val VALE_ATE_MAX_MS = 5 * 60_000L
+
+/**
+ * A etapa que vale [agora], do que o Tourbillon respondeu ([nome] e [valeAte], epoch). Falha fechada: sem resposta,
+ * "nenhuma", etapa desconhecida, [valeAte] vencido ou absurdo ([VALE_ATE_MAX_MS]) dão null, as regras de sempre.
+ */
+fun etapaQueVale(nome: String?, valeAte: Long, agora: Long): Etapa? {
+    if (valeAte <= agora || valeAte - agora > VALE_ATE_MAX_MS) return null
+    return Etapa.entries.firstOrNull { it.name == nome }
+}
+
+/**
+ * Um tique das regras: a rodada [antes] depois de [passou] ms com [emUso] na frente, e o site a ejetar (null: nenhum).
+ * Na manhã do Tourbillon ([etapa]) o uso não conta (o ciclo segue de onde estava quando ela acaba) e todo site menos o
+ * livre dela é ejetado; fora dela, só com a rodada bloqueada.
+ */
+fun decidir(antes: Rodada, emUso: Site?, etapa: Etapa?, agora: Long, passou: Long): Pair<Rodada, Site?> {
+    val depois = antes.avancar(agora, if (emUso != null && etapa == null) passou else 0L)
+    val ejetar = emUso?.takeIf { if (etapa != null) it != etapa.livre else depois.bloqueada(agora) }
+    return depois to ejetar
 }
 
 /** Os uids abaixo disto são do sistema (o do DNS do Android, por exemplo): quem pediu de verdade não dá pra saber. */
