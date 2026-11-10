@@ -1,10 +1,10 @@
-# Maverick Truck
+# Mistral
 
 **Instagram and YouTube on Android, on a short leash: 7 minutes of use, then 15 minutes blocked.**
 
 The app and the site, in any browser. No account, no server, no accessibility service. It does not cut your internet: when your time is up, it puts a full-screen cover over the app (or sends the browser Home) until the block ends.
 
-Maverick Truck is the phone sibling of [Maverick](https://github.com/luiz-nast/maverick), the Linux desktop app that limits YouTube and runs Instagram on the same kind of cycle. Maverick is the car; this is the truck.
+Mistral, formerly Maverick Truck, is the phone sibling of [Maverick](https://github.com/luiz-nast/maverick), the Linux desktop app that limits YouTube and runs Instagram on the same kind of cycle. Like its siblings [Chiron](https://github.com/luiz-nast/chiron-routine), [Veyron](https://github.com/luiz-nast/Veyron), and [Tourbillon Alarm](https://github.com/luiz-nast/tourbillon-alarm), Mistral is named after a Bugatti model (the W16 Mistral). On this phone, it does what Maverick does on the Linux desktop.
 
 | | |
 |---|---|
@@ -14,7 +14,7 @@ Maverick Truck is the phone sibling of [Maverick](https://github.com/luiz-nast/m
 | Size | ~5 MB (3.4 MB are the car photos) |
 | Permissions | Usage access, local VPN, cover blocked apps, notifications, unrestricted battery |
 | Network | Nothing goes to any server of ours: there is none |
-| App ID | `io.github.luiz_nast.maverick.truck` |
+| App ID | `io.github.luiz_nast.mistral` |
 | License | MIT (code); car photos under their own CC BY / CC BY-SA licenses, see [CREDITS.md](CREDITS.md) |
 
 ## The cycle
@@ -92,9 +92,9 @@ or build and install by hand:
 adb install -r app/build/outputs/apk/release/app-release.apk
 ```
 
-Then open **Maverick Truck** and:
+Then open **Mistral** and:
 
-1. **Usage access** › Allow › find Maverick Truck › on.
+1. **Usage access** › Allow › find Mistral › on.
 2. **Notifications** › Allow (Android 13+).
 3. **Unrestricted battery** › Allow (Samsung and others put background apps to sleep).
 4. **Cover blocked apps** › Allow (so a block screen can appear over Instagram and YouTube).
@@ -102,11 +102,13 @@ Then open **Maverick Truck** and:
 
 It comes back by itself after a reboot or an update.
 
+**Installing Mistral next to an old Maverick Truck.** Android keeps one VPN at a time. If the old Maverick Truck app is still on the phone, turning Mistral's shield on will take the VPN from the old app. Once Mistral is validated on the phone, turn the old app off (or disable it with `adb shell pm disable-user --user 0 io.github.luiz_nast.maverick.truck`, which you can undo).
+
 **Private DNS.** If Settings › Connections › More connection settings › Private DNS is set to a provider (for example `dns.google`), Android sends DNS straight to that provider and the shield never sees a browser's site (the apps are still caught by usage). The app shows a red warning in that case. Set it to **Automatic** (or Off).
 
 ## Why not an accessibility service?
 
-Most app blockers watch the screen through an accessibility service and press Home on the blocked app. On Android 13+, an app that is not from the Play Store and has an accessibility service on is exactly what the "app access risk" check of banking apps flags, because that is how remote-control scams work: Nubank refuses to open while one is on. The same owner hit that with Tourbillon Alarm in October 2026. So Maverick Truck uses only:
+Most app blockers watch the screen through an accessibility service and press Home on the blocked app. On Android 13+, an app that is not from the Play Store and has an accessibility service on is exactly what the "app access risk" check of banking apps flags, because that is how remote-control scams work: Nubank refuses to open while one is on. The same owner hit that with Tourbillon Alarm in October 2026. So Mistral uses only:
 
 | Need | What it uses | Not this |
 |---|---|---|
@@ -120,7 +122,7 @@ Most app blockers watch the screen through an accessibility service and press Ho
 - **The cover needs its permission.** The block is the cover, so without "Display over other apps" nothing stops you — grant it. The cover appears up to 1 second after you open the blocked app (the shield looks once a second).
 - **A browser on the site.** The shield reads a browser's site from its DNS. Once the browser asks for Instagram/YouTube, it keeps counting while that browser stays in front, even when a playing video asks nothing more; it stops when you leave the browser or the browser asks for another site (a bank page ends it at once). Requests that come with those pages (Google, ads, Facebook CDN) do not end it. Switching to a tab that was already loaded can go unnoticed until you leave the browser.
 - **DNS over TCP** to the shield is not answered. Android uses it only for answers too big for UDP (rare with modern resolvers); such a name can fail to resolve while the shield is on. Set Private DNS to Automatic, not a fixed provider.
-- **Turning it off is possible from Android**: Settings › VPN, or the VPN tile, or uninstalling. Maverick Truck is a seatbelt, not a jail. It notifies you when the shield goes down.
+- **Turning it off is possible from Android**: Settings › VPN, or the VPN tile, or uninstalling. So Mistral uses only what it needs to do its job. Mistral is a seatbelt, not a jail. It notifies you when the shield goes down.
 - **Another VPN replaces it.** Android runs one VPN at a time.
 - **Private DNS set to a provider** bypasses the shield (see above).
 - **A browser with its own encrypted DNS** set to a fixed provider (Chrome › Settings › Privacy › Use secure DNS › custom provider) bypasses it for sites. Chrome's default ("automatic", with your current provider) is fine.
@@ -146,7 +148,7 @@ Most app blockers watch the screen through an accessibility service and press Ho
 | `Medidor.kt` | The small floating pill (same permission) with "used / 7:00", shown while Instagram or YouTube is in front and still free; drag it anywhere and it remembers the spot; like the desktop Maverick's counter; never over a bank |
 | `BootReceiver.kt` | Brings the shield back after a reboot or an app update |
 
-Code and comments are in Portuguese, like the sibling projects; everything on screen is in English. Logs: `adb logcat -s Maverick`.
+Code and comments are in Portuguese, like the sibling projects; everything on screen is in English. Logs: `adb logcat -s Mistral`.
 
 ## Design decisions
 
