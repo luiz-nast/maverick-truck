@@ -61,7 +61,7 @@ The shield also adds up how long each site was actually on screen (`Estado.uso`,
 | URI (authority `io.github.luiz_nast.mistral.uso`) | Columns |
 |---|---|
 | `content://io.github.luiz_nast.mistral.uso/dias` | `dia` (`YYYY-MM-DD`, phone time zone), `app` (`instagram` or `youtube`), `ms` (screen use that day), `atualizado_em` (epoch ms); the last 14 days |
-| `content://io.github.luiz_nast.mistral.uso/celular` | one row: `ultimo_uso` (epoch ms of the last shield tick with the screen on, 0 = never), `app` (package in front at that tick, or empty), `escudo` (1 = the shield is up, 0 = not) |
+| `content://io.github.luiz_nast.mistral.uso/celular` | one row: `ultimo_uso` (epoch ms of the last shield tick with the screen on and unlocked, 0 = never), `app` (package in front at that tick, or empty), `escudo` (1 = the shield is up, 0 = not) |
 
 Example (time zone `America/Sao_Paulo`): on 2026-11-10, 12 min 34 s of Instagram and 2 min of YouTube, last written at 13:00:
 

@@ -1,7 +1,7 @@
 // O uso do dia aberto ao Chiron (mesmo celular): um provider só de leitura, protegido pela permissão USO, de assinatura
 // (só app com a mesma chave lê). O Chiron pergunta quando precisa; o Mistral nunca o acorda. Duas rotas:
 //   /dias    uma linha por dia e app dos últimos 14 dias: dia (AAAA-MM-DD), app (instagram | youtube), ms, atualizado_em
-//   /celular uma linha: ultimo_uso (ms do último tique com a tela ligada, 0 = nunca), app (pacote na frente, ou ""),
+//   /celular uma linha: ultimo_uso (ms do último tique com a tela ligada e desbloqueada, 0 = nunca), app (pacote na frente, ou ""),
 //            escudo (1 = o escudo está de pé neste processo, 0 = não)
 package io.github.luiz_nast.mistral
 

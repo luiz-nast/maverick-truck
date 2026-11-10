@@ -14,6 +14,7 @@
 // Fora do túnel ficam o próprio app, os bancos e o despertador.
 package io.github.luiz_nast.mistral
 
+import android.app.KeyguardManager
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -256,8 +257,8 @@ class Escudo : VpnService() {
         // Uma rodada só: o tempo do Instagram e do YouTube soma junto, e o bloqueio vale pros dois ([Estado.rodada])
         val antes = Estado.rodada.value
         val (depois, ejetar) = decidir(antes, emUso, etapa, agora, passou)
-        // O uso de tela que o Chiron lê: só o site visível conta (a tela de bloqueio por cima não é uso)
-        if (telaLigada()) Estado.anotarTela(agora, naFrente)
+        // O uso de tela que o Chiron lê: só o site visível conta (a tela de bloqueio por cima não é uso), e só com o celular desbloqueado
+        if (telaLigada() && !getSystemService(KeyguardManager::class.java).isKeyguardLocked) Estado.anotarTela(agora, naFrente)
         siteVisivel(emUso, ejetar)?.let { Estado.somarUso(it, passou, agora) }
         val comecou = !antes.bloqueada(agora) && depois.bloqueada(agora)
         val virou = comecou || (antes.bloqueadoAte != 0L && depois.bloqueadoAte == 0L)
