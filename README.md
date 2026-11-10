@@ -14,7 +14,7 @@ Mistral, formerly Maverick Truck, is the phone sibling of [Maverick](https://git
 | Size | ~5 MB (3.4 MB are the car photos) |
 | Permissions | Usage access, local VPN, cover blocked apps, notifications, unrestricted battery |
 | Network | Nothing goes to any server of ours: there is none |
-| App ID | `io.github.luiz_nast.mistral` |
+| App ID | `io.github.luiz_nast.maverick.truck` (the same as before the rename: Mistral installs over Maverick Truck and keeps its data) |
 | License | MIT (code); car photos under their own CC BY / CC BY-SA licenses, see [CREDITS.md](CREDITS.md) |
 
 ## The cycle

@@ -10,7 +10,9 @@ android {
     }
 
     defaultConfig {
-        applicationId = "io.github.luiz_nast.mistral"
+        // (o dono, 11-10): o Mistral É o Maverick Truck com outro nome, nunca um app novo ao lado dele. O applicationId
+        // fica o de sempre, para o celular instalar por cima e guardar os dados; o código e o nome já são Mistral.
+        applicationId = "io.github.luiz_nast.maverick.truck"
         // VpnService.Builder.addDisallowedApplication e getConnectionOwnerUid: Android 10+
         minSdk = 29
         targetSdk = 36
