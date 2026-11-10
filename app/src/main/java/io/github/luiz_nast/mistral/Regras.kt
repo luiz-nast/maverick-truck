@@ -1,6 +1,11 @@
 // As regras do Mistral, puras (sem Android), com testes em RegrasTest: os sites regrados, a rodada de cada um
 // (7 min de uso, depois 15 min bloqueado pelo relógio), quando um momento conta como uso e o que a manhã do Tourbillon muda.
+// A conta do uso do dia por app (para o Chiron) também mora aqui, com testes em UsoTest.
 package io.github.luiz_nast.mistral
+
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
 
 /** Uso liberado por rodada; passou disso, o site fica bloqueado por [BLOQUEIO_MS] (o dono, 10-30: "7 min liberados, 15 bloqueados"). */
 const val LIVRE_MS = 7 * 60_000L
@@ -175,4 +180,46 @@ fun deApoio(host: String): Boolean {
 fun mmss(ms: Long): String {
     val s = (ms.coerceAtLeast(0) + 999) / 1000
     return "%d:%02d".format(s / 60, s % 60)
+}
+
+/** O uso de um [app] ("instagram", "youtube") num [dia] ("AAAA-MM-DD"): [ms] visíveis, anotados por último em [atualizadoEm] (epoch). */
+data class UsoDoDia(val dia: String, val app: String, val ms: Long, val atualizadoEm: Long)
+
+/** Quantos dias de uso ficam guardados: hoje e os 13 de trás. */
+const val DIAS_DE_USO = 14
+
+/** O site que conta como uso de tela: o [emUso] que não está [ejetar]ado (a tela de bloqueio por cima não é uso). */
+fun siteVisivel(emUso: Site?, ejetar: Site?): Site? = emUso?.takeIf { it != ejetar }
+
+/** De [hoje] - ([DIAS_DE_USO] - 1) a [hoje], ordenado por dia e app; o resto sai. */
+fun podarUso(lista: List<UsoDoDia>, hoje: LocalDate): List<UsoDoDia> {
+    val desde = hoje.minusDays(DIAS_DE_USO - 1L).toString() // ISO: comparar o texto é comparar a data
+    return lista.filter { it.dia >= desde && it.dia <= hoje.toString() }.sortedWith(compareBy({ it.dia }, { it.app }))
+}
+
+/**
+ * A [lista] depois de [passou] ms de [site] visível, em [agora]: soma no dia de [agora] no [fuso] (no máximo
+ * [TIQUE_MAX_MS] por vez, como a rodada), com `app = site.name.lowercase()`, e já poda.
+ */
+fun somarUso(lista: List<UsoDoDia>, site: Site, passou: Long, agora: Long, fuso: ZoneId): List<UsoDoDia> {
+    val hoje = Instant.ofEpochMilli(agora).atZone(fuso).toLocalDate()
+    val dia = hoje.toString()
+    val app = site.name.lowercase()
+    val soma = passou.coerceIn(0L, TIQUE_MAX_MS)
+    val achou = lista.firstOrNull { it.dia == dia && it.app == app }
+    val novo = UsoDoDia(dia, app, (achou?.ms ?: 0L) + soma, agora)
+    return podarUso(lista.filter { it !== achou } + novo, hoje)
+}
+
+/** Uma linha por item: `dia app ms atualizadoEm`. */
+fun usoParaTexto(lista: List<UsoDoDia>): String = lista.joinToString("\n") { "${it.dia} ${it.app} ${it.ms} ${it.atualizadoEm}" }
+
+/** O inverso de [usoParaTexto]; linha ruim (campos a menos ou a mais, dia que não é data, número ruim) fica fora. */
+fun usoDoTexto(texto: String?): List<UsoDoDia> = texto.orEmpty().lines().mapNotNull { linha ->
+    val p = linha.trim().split(' ')
+    if (p.size != 4) return@mapNotNull null
+    val ms = p[2].toLongOrNull()?.takeIf { it >= 0 } ?: return@mapNotNull null
+    val em = p[3].toLongOrNull() ?: return@mapNotNull null
+    if (runCatching { LocalDate.parse(p[0]) }.isFailure) return@mapNotNull null
+    UsoDoDia(p[0], p[1], ms, em)
 }
