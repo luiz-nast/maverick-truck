@@ -18,6 +18,10 @@ The car photos on the block screen come from [Wikimedia Commons](https://commons
 
 Under CC BY-SA, these resized copies are shared under the same license as each original. The block screen shows only the photos; the car, the author and the license of each one are listed on the app's main screen ("Photo credits"), with the address of this file, which has the license and source links.
 
+## App icon
+
+The icon on the owner's phone is a photo of the Bugatti W16 Mistral: [File:Bugatti Mistral 7.jpg](https://commons.wikimedia.org/wiki/File:Bugatti_Mistral_7.jpg) by Calreyn88, [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0). It was cropped, its edges were blurred and darkened, and it was scaled to 432 px; the adapted icon is under the same license. It is not in this repository: the repository keeps only the vector M (`app/src/main/res/drawable/ic_launcher_frente.xml`).
+
 ## Music and your own photos
 
 The app ships no music and no photos of yours. The block screen plays songs from the music library shared with Tourbillon Alarm, which the owner fills with files from their own phone, and shows the gallery photos the owner picks. None of that goes into this repository.
