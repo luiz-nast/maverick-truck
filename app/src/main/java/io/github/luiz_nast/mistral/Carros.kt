@@ -3,7 +3,7 @@
 // que as licenças pedem, ficam na tela do app ("Photo credits") e no CREDITS.md, com os links das licenças e das fontes.
 // Conferido na ficha oficial de cada arquivo no Commons (31-10-2026): só obra
 // do próprio autor que subiu, ou do Flickr com a revisão do Commons. Sem carro antigo, nem no fundo da foto (o dono, 10-31).
-package io.github.luiz_nast.maverick.truck
+package io.github.luiz_nast.mistral
 
 /** Uma foto do carrossel: o [desenho] (R.drawable) e a [legenda] com o carro, o autor e a licença. */
 data class Carro(val desenho: Int, val legenda: String)

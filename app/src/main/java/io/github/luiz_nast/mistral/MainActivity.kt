@@ -1,6 +1,6 @@
 // A tela do app: a rodada de cada site (o anel), o botão de ligar (desligar não tem: o dono, 10-31) e as permissões. Quem conta e bloqueia
 // é o escudo ([Escudo]); aqui só se desenha o [Estado].
-package io.github.luiz_nast.maverick.truck
+package io.github.luiz_nast.mistral
 
 import android.Manifest
 import android.content.Context
@@ -174,7 +174,7 @@ private fun Tela(onLigar: () -> Unit, onNotificacoes: () -> Unit) {
     Column(
         Modifier.fillMaxSize().background(Fundo).safeDrawingPadding().verticalScroll(rememberScrollState()).padding(Medida.tela),
     ) {
-        Text("Maverick Truck", color = Texto, style = MaterialTheme.typography.headlineMedium)
+        Text("Mistral", color = Texto, style = MaterialTheme.typography.headlineMedium)
         Text(
             "Instagram and YouTube, app and site: ${LIVRE_MS / 60_000} minutes of use, then ${BLOQUEIO_MS / 60_000} minutes blocked.",
             color = Corpo, fontSize = 16.sp,
@@ -278,7 +278,7 @@ private fun CartaoDeMusicas(voltas: Int) {
         AlertDialog(
             onDismissRequest = { apagar = null },
             title = { Text("Delete $nome?") },
-            text = { Text("It leaves the shared library: Maverick Truck and Tourbillon Alarm both lose it.") },
+            text = { Text("It leaves the shared library: Mistral and Tourbillon Alarm both lose it.") },
             confirmButton = {
                 TextButton(onClick = {
                     apagar = null

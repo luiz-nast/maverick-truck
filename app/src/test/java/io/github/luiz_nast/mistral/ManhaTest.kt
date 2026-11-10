@@ -1,10 +1,10 @@
-package io.github.luiz_nast.maverick.truck
+package io.github.luiz_nast.mistral
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
 
-// A bateria Tourbillon ↔ Maverick Truck (o dono, 11-08): o que a etapa da manhã do Tourbillon muda em cada site, e a
+// A bateria Tourbillon ↔ Mistral (o dono, 11-08): o que a etapa da manhã do Tourbillon muda em cada site, e a
 // falha fechada (sem resposta, vencido, absurdo ou relógio mexido: as regras de sempre).
 class ManhaTest {
     private val agora = 50_000_000L

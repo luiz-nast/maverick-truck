@@ -1,4 +1,4 @@
-package io.github.luiz_nast.maverick.truck
+package io.github.luiz_nast.mistral
 
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals

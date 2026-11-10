@@ -1,6 +1,6 @@
 // As notificações: a fixa do escudo (a rodada de cada site, discreta) e o aviso de bloqueio (aparece por cima, uma
 // vez quando o bloqueio começa e uma vez a cada abertura do app bloqueado).
-package io.github.luiz_nast.maverick.truck
+package io.github.luiz_nast.mistral
 
 import android.app.Notification
 import android.app.NotificationChannel
@@ -43,7 +43,7 @@ object Notificacoes {
     fun estado(ctx: Context, texto: String): Notification =
         NotificationCompat.Builder(ctx, CANAL_ESTADO)
             .setSmallIcon(R.drawable.ic_notificacao)
-            .setContentTitle("Maverick Truck")
+            .setContentTitle("Mistral")
             .setContentText(texto)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
@@ -74,7 +74,7 @@ object Notificacoes {
     fun avisarReligar(ctx: Context) {
         val aviso = NotificationCompat.Builder(ctx, CANAL_BLOQUEIO)
             .setSmallIcon(R.drawable.ic_notificacao)
-            .setContentTitle("Maverick Truck is off")
+            .setContentTitle("Mistral is off")
             .setContentText("Instagram and YouTube are not limited. Tap to turn it back on.")
             .setAutoCancel(true)
             .setContentIntent(abrirApp(ctx))

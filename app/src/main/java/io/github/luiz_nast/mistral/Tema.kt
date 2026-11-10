@@ -1,6 +1,6 @@
 // As cores, os tamanhos de texto, os raios e os espaços do app num lugar só: mudar uma medida é mudar uma linha.
 // A mesma escala do Tourbillon Alarm e do Chiron (11-07), pra os três apps terem a mesma proporção.
-package io.github.luiz_nast.maverick.truck
+package io.github.luiz_nast.mistral
 
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Shapes

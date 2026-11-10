@@ -1,6 +1,6 @@
-// As regras do Maverick Truck, puras (sem Android), com testes em RegrasTest: os sites regrados, a rodada de cada um
+// As regras do Mistral, puras (sem Android), com testes em RegrasTest: os sites regrados, a rodada de cada um
 // (7 min de uso, depois 15 min bloqueado pelo relógio), quando um momento conta como uso e o que a manhã do Tourbillon muda.
-package io.github.luiz_nast.maverick.truck
+package io.github.luiz_nast.mistral
 
 /** Uso liberado por rodada; passou disso, o site fica bloqueado por [BLOQUEIO_MS] (o dono, 10-30: "7 min liberados, 15 bloqueados"). */
 const val LIVRE_MS = 7 * 60_000L

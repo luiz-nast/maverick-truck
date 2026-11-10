@@ -1,8 +1,8 @@
 // Teste do bloqueio sem esperar os 7 minutos, só pelo cabo (permissão DUMP, que o adb tem e app nenhum):
-//   adb shell am broadcast -n io.github.luiz_nast.maverick.truck/.TesteDoBloqueio --ei minutos 2
-//   adb logcat -s Maverick
+//   adb shell am broadcast -n io.github.luiz_nast.mistral/.TesteDoBloqueio --ei minutos 2
+//   adb logcat -s Mistral
 // "minutos 0" solta na hora. O escudo precisa estar ligado. Bloqueia o Instagram e o YouTube juntos (uma rodada só).
-package io.github.luiz_nast.maverick.truck
+package io.github.luiz_nast.mistral
 
 import android.content.BroadcastReceiver
 import android.content.Context

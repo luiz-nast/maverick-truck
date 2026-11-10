@@ -3,7 +3,7 @@
 // conforme enche. Dá pra arrastar pra qualquer canto (o dono, 10-31), e ele lembra onde ficou. Usa a mesma permissão da
 // tela de bloqueio ("Aparecer sobre outros apps"), não é acessibilidade. Só sobre o Instagram e o YouTube (o escudo só
 // manda mostrar quando um deles está na frente): nunca sobre banco ou outro app.
-package io.github.luiz_nast.maverick.truck
+package io.github.luiz_nast.mistral
 
 import android.annotation.SuppressLint
 import android.content.Context

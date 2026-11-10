@@ -1,6 +1,6 @@
 // Qual app está na frente, pelo histórico de uso do Android (a permissão "Acesso ao uso", dada nas Configurações), e
 // quais apps são navegadores. Sem serviço de acessibilidade: os bancos (o Nubank) travam quem tem um fora da Play Store.
-package io.github.luiz_nast.maverick.truck
+package io.github.luiz_nast.mistral
 
 import android.app.AppOpsManager
 import android.app.usage.UsageEvents

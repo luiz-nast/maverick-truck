@@ -9,7 +9,7 @@
 //
 // Só aparece sobre o app do site bloqueado (o escudo só manda mostrar quando esse app está na frente); nunca sobre um
 // banco, o despertador ou qualquer outro. Sem a permissão, não faz nada.
-package io.github.luiz_nast.maverick.truck
+package io.github.luiz_nast.mistral
 
 import android.content.Context
 import android.content.Intent

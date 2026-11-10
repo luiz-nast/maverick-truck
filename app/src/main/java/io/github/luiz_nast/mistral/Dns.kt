@@ -1,6 +1,6 @@
 // O que o escudo faz com os pacotes do túnel, puro (sem Android), com testes em DnsTest: ler a pergunta de DNS de um
 // pacote IPv4/UDP, responder "não existe" (NXDOMAIN), ler os endereços de uma resposta e montar o pacote de volta.
-package io.github.luiz_nast.maverick.truck
+package io.github.luiz_nast.mistral
 
 
 /** Uma pergunta de DNS que chegou pelo túnel: de quem ([origem]:[portaOrigem]), pra quem ([destino]:[portaDestino]) e a mensagem. */

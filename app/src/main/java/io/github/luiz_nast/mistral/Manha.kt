@@ -1,8 +1,8 @@
-// A atividade da manhã do Tourbillon Alarm manda no Maverick Truck enquanto dura (o dono, 11-08). O Tourbillon diz a
+// A atividade da manhã do Tourbillon Alarm manda no Mistral enquanto dura (o dono, 11-08). O Tourbillon diz a
 // etapa pelo provider content://com.implacavel.alarme.modo, com a mesma permissão de assinatura da biblioteca de sons
 // (Musicas): uma linha com "etapa" (CONVERSA, CAMINHADA, CAMERA ou nenhuma) e "valeAte" (epoch, renovado enquanto
 // dura). O que cada etapa muda fica em Regras.kt (etapaQueVale, decidir); o escudo pergunta a cada poucos segundos.
-package io.github.luiz_nast.maverick.truck
+package io.github.luiz_nast.mistral
 
 import android.content.Context
 import android.net.Uri

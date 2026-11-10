@@ -1,4 +1,4 @@
-// O escudo do Maverick Truck. Ele não corta a internet de nada (o dono, 10-31: "esquece o código que bloqueia a
+// O escudo do Mistral. Ele não corta a internet de nada (o dono, 10-31: "esquece o código que bloqueia a
 // internet do app, tenta sempre fazer o app ou site cair fora"). Ele faz duas coisas:
 //
 // 1. Conta o uso. A cada segundo de tela ligada, vê qual app está na frente (Uso) e, se é o Instagram ou o YouTube (o
@@ -12,7 +12,7 @@
 // VPN local que só observa o DNS: todas as perguntas de endereço passam por ele, que anota quais apps perguntaram pelo
 // Instagram ou pelo YouTube e manda a resposta de verdade de volta, sem mexer em nada. Nada sai por um servidor de fora.
 // Fora do túnel ficam o próprio app, os bancos e o despertador.
-package io.github.luiz_nast.maverick.truck
+package io.github.luiz_nast.mistral
 
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
@@ -49,8 +49,8 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
 import kotlin.concurrent.thread
 
-/** Tag dos logs do app: `adb logcat -s Maverick`. */
-const val TAG = "Maverick"
+/** Tag dos logs do app: `adb logcat -s Mistral`. */
+const val TAG = "Mistral"
 
 class Escudo : VpnService() {
 
@@ -305,7 +305,7 @@ class Escudo : VpnService() {
     /** O túnel que só observa o DNS: a única rota é o servidor de DNS de mentira dentro dele. Montado uma vez; só volta se a leitura cair. */
     private fun montarTunel() {
         val b = Builder()
-            .setSession("Maverick Truck")
+            .setSession("Mistral")
             .setBlocking(true)
             .setMtu(1500)
             .addAddress(ENDERECO, 32)

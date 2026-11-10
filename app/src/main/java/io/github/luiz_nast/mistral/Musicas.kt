@@ -2,7 +2,7 @@
 // pela FonteDeSons dele (o dono, 10-31: a mesma base de músicas nos dois). Daqui dá pra tocar, adicionar e apagar; o que
 // entra ou sai aparece nos dois apps. Só funciona com o Tourbillon instalado e assinado com a mesma chave (a permissão
 // com.implacavel.alarme.permission.SONS é de assinatura); sem ele, a lista vem vazia e a tela fica sem som.
-package io.github.luiz_nast.maverick.truck
+package io.github.luiz_nast.mistral
 
 import android.content.Context
 import android.net.Uri

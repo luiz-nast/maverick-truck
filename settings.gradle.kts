@@ -20,5 +20,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "MaverickTruck"
+rootProject.name = "Mistral"
 include(":app")

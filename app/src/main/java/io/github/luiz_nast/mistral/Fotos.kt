@@ -2,7 +2,7 @@
 // uma foto da galeria eu pego de lá"). Escolhidas pelo seletor de fotos do Android (não pede permissão de galeria),
 // COPIADAS pra dentro do app em tamanho de tela (no máximo 1600 px no lado maior), então apagar da galeria não tira
 // daqui. Apaga na tela do app.
-package io.github.luiz_nast.maverick.truck
+package io.github.luiz_nast.mistral
 
 import android.content.Context
 import android.graphics.Bitmap

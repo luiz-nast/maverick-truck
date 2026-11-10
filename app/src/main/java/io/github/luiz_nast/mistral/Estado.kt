@@ -1,7 +1,7 @@
-// O estado do Maverick Truck, guardado no celular: ligado ou não, e a rodada — uma só, do Instagram e do YouTube juntos
+// O estado do Mistral, guardado no celular: ligado ou não, e a rodada — uma só, do Instagram e do YouTube juntos
 // (o dono, 10-31: pular de um site bloqueado pro outro furava o cadeado; agora os dois contam no mesmo tempo e caem
 // juntos). A tela lê daqui ([rodada], [ligado]); quem escreve é o escudo ([Escudo]).
-package io.github.luiz_nast.maverick.truck
+package io.github.luiz_nast.mistral
 
 import android.content.Context
 import android.content.SharedPreferences
