@@ -8,7 +8,7 @@ Mistral, formerly Maverick Truck, is the phone sibling of [Maverick](https://git
 
 | | |
 |---|---|
-| Version | 0.1.0 |
+| Version | 0.2.0 |
 | Platform | Android 10+ (tested target: Android 16, Galaxy S24 FE) |
 | Language | Kotlin, Jetpack Compose |
 | Size | ~5 MB (3.4 MB are the car photos) |
@@ -53,6 +53,22 @@ While [Tourbillon Alarm](https://github.com/luiz-nast/tourbillon-alarm)'s mornin
 | Talk (`CONVERSA`) | Locked | Locked |
 
 "Locked" is the cover, with no time on it: it opens when the routine ends. Free time in the routine does not count toward the 7 minutes, and the round picks up where it was when the routine ends (a block keeps running by the clock). The main screen shows the stage; there is nothing to pause or change meanwhile. It fails closed: no answer, an unknown stage, or a `valeAte` that has passed (or is more than 5 min ahead, a moved clock) means the usual rules, so a dead Tourbillon brings the usual rules back within 90 s. The YouTube page inside Tourbillon is never touched: the alarm stays outside the tunnel and is not a browser.
+
+### Usage of the day, for Chiron
+
+The shield also adds up how long each site was actually on screen (`Estado.uso`, 14 days, per app: Instagram or YouTube, the app or a browser on the site). Time under the block cover is not use; the Tourbillon morning routine counts only for its free site. [Chiron](https://github.com/luiz-nast/chiron-routine), on the same phone, reads it through a read-only content provider (`FonteDoUso.kt`) protected by the signature permission `io.github.luiz_nast.mistral.permission.USO`: only apps signed with the same key can read, and writing does nothing. Mistral never wakes Chiron; Chiron asks when it needs.
+
+| URI (authority `io.github.luiz_nast.mistral.uso`) | Columns |
+|---|---|
+| `content://io.github.luiz_nast.mistral.uso/dias` | `dia` (`YYYY-MM-DD`, phone time zone), `app` (`instagram` or `youtube`), `ms` (screen use that day), `atualizado_em` (epoch ms); the last 14 days |
+| `content://io.github.luiz_nast.mistral.uso/celular` | one row: `ultimo_uso` (epoch ms of the last shield tick with the screen on, 0 = never), `app` (package in front at that tick, or empty), `escudo` (1 = the shield is up, 0 = not) |
+
+Example (time zone `America/Sao_Paulo`): on 2026-11-10, 12 min 34 s of Instagram and 2 min of YouTube, last written at 13:00:
+
+| dia | app | ms | atualizado_em |
+|---|---|---|---|
+| 2026-11-10 | instagram | 754000 | 1794326400000 |
+| 2026-11-10 | youtube | 120000 | 1794326400000 |
 
 ## How it works
 
@@ -133,11 +149,12 @@ Most app blockers watch the screen through an accessibility service and press Ho
 
 | File | What it does |
 |---|---|
-| `Regras.kt` | Pure rules, tested: the two sites (`Site`: packages, ruled domains), `siteDoDominio`, the round (`Rodada.avancar`, `LIVRE_MS` = 7 min, `BLOQUEIO_MS` = 15 min), `siteEmUso` (with who asked: `Consulta`), the morning stages (`Etapa`, `etapaQueVale`, `decidir`) |
+| `Regras.kt` | Pure rules, tested: the two sites (`Site`: packages, ruled domains), `siteDoDominio`, the round (`Rodada.avancar`, `LIVRE_MS` = 7 min, `BLOQUEIO_MS` = 15 min), `siteEmUso` (with who asked: `Consulta`), the morning stages (`Etapa`, `etapaQueVale`, `decidir`), the usage of the day (`UsoDoDia`, `siteVisivel`, `somarUso`, `podarUso`) |
 | `Dns.kt` | Pure packet work, tested: read a DNS question from an IPv4/UDP packet (`lerPerguntaDns`), the question name, the 10 s TTL rewrite (`encurtarTtl`), build an IPv4/UDP packet with both checksums |
 | `Escudo.kt` | The `VpnService`: the 1 s tick (usage, rounds, notices, the cover), the DNS-only tunnel (never blocks; rebuilt only if its reader dies), the reader thread (`Os.poll`), forwarding to the real DNS through protected sockets (re-read on every network change), who asked (`getConnectionOwnerUid`) |
 | `Uso.kt` | Which app is on screen (`UsageStatsManager.queryEvents`), whether usage access is granted, which apps are browsers |
-| `Estado.kt` | What is saved on the phone: on/off and the single shared round (Instagram + YouTube); the screen reads it as `StateFlow` |
+| `Estado.kt` | What is saved on the phone: on/off, the single shared round (Instagram + YouTube) and the usage of the day; the screen reads it as `StateFlow` |
+| `FonteDoUso.kt` | The read-only provider that opens the usage of the day (`/dias`) and the last use of the phone (`/celular`) to Chiron, behind the signature permission `USO` |
 | `Notificacoes.kt` | The ongoing status notification and the "blocked" heads-up |
 | `MainActivity.kt` | The screen: the shared "Instagram & YouTube" ring, TURN ON (there is no off switch), permissions, the Private DNS warning |
 | `Cobertura.kt` | The full-screen cover shown over a blocked app while it is in front (`SYSTEM_ALERT_WINDOW`); never over a bank |

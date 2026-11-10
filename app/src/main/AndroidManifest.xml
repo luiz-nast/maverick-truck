@@ -9,6 +9,11 @@
         android:protectionLevel="signature" />
     <uses-permission android:name="com.implacavel.alarme.permission.SONS" />
 
+    <!-- O uso do dia que o Chiron lê (FonteDoUso.kt): permissão de assinatura, declarada nos dois apps como a SONS -->
+    <permission
+        android:name="io.github.luiz_nast.mistral.permission.USO"
+        android:protectionLevel="signature" />
+
     <!-- O DNS de verdade, perguntado pelo próprio app, por fora do túnel -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
@@ -79,6 +84,14 @@
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="Local DNS filter that limits Instagram and YouTube to 7 minutes of use, then 15 minutes blocked" />
         </service>
+
+        <!-- O uso do dia e o último uso do celular, só leitura, só para o Chiron (mesma chave): FonteDoUso.kt -->
+        <provider
+            android:name=".FonteDoUso"
+            android:authorities="io.github.luiz_nast.mistral.uso"
+            android:exported="true"
+            android:readPermission="io.github.luiz_nast.mistral.permission.USO"
+            android:writePermission="io.github.luiz_nast.mistral.permission.USO" />
 
         <!-- Teste do bloqueio sem esperar os 7 min, só pelo cabo (o adb tem a permissão DUMP; app nenhum tem). Veja TesteDoBloqueio.kt -->
         <receiver

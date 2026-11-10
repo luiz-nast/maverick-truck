@@ -256,6 +256,9 @@ class Escudo : VpnService() {
         // Uma rodada só: o tempo do Instagram e do YouTube soma junto, e o bloqueio vale pros dois ([Estado.rodada])
         val antes = Estado.rodada.value
         val (depois, ejetar) = decidir(antes, emUso, etapa, agora, passou)
+        // O uso de tela que o Chiron lê: só o site visível conta (a tela de bloqueio por cima não é uso)
+        if (telaLigada()) Estado.anotarTela(agora, naFrente)
+        siteVisivel(emUso, ejetar)?.let { Estado.somarUso(it, passou, agora) }
         val comecou = !antes.bloqueada(agora) && depois.bloqueada(agora)
         val virou = comecou || (antes.bloqueadoAte != 0L && depois.bloqueadoAte == 0L)
         val gravar = virou || agora - gravadoEm >= GRAVAR_MS
