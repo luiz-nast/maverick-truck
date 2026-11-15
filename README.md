@@ -118,8 +118,6 @@ Then open **Mistral** and:
 
 It comes back by itself after a reboot or an update.
 
-**Installing Mistral next to an old Maverick Truck.** Android keeps one VPN at a time. If the old Maverick Truck app is still on the phone, turning Mistral's shield on will take the VPN from the old app. Once Mistral is validated on the phone, turn the old app off (or disable it with `adb shell pm disable-user --user 0 io.github.luiz_nast.maverick.truck`, which you can undo).
-
 **Private DNS.** If Settings › Connections › More connection settings › Private DNS is set to a provider (for example `dns.google`), Android sends DNS straight to that provider and the shield never sees a browser's site (the apps are still caught by usage). The app shows a red warning in that case. Set it to **Automatic** (or Off).
 
 ## Why not an accessibility service?
