@@ -8,7 +8,7 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 
 // A conta do uso do dia por app (o que o Chiron lê): só o site visível conta, no dia do fuso, com o teto do tique,
-// 14 dias guardados e o texto de ida e volta. O exemplo fixo é o da 2.2 do PLANO_MISTRAL_ICONES.
+// 14 dias guardados e o texto de ida e volta. O exemplo fixo é o do contrato do uso (chiron-routine/docs/CONTRATOS.md 2.7).
 class UsoTest {
     private val fuso = ZoneId.of("America/Sao_Paulo")
 
